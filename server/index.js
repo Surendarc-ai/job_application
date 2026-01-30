@@ -13,11 +13,13 @@ const allowedOrigins = process.env.CLIENT_ORIGIN
   : ['http://localhost:5173'];
 app.use(cors({
   origin: (origin, cb) => {
+    console.log(origin);
+    console.log(allowedOrigins);
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
     return cb(null, false);
   },
 }));
-app.use(express.json());
+
 
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobsRoutes);
