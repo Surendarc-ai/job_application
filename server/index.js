@@ -11,23 +11,24 @@ const PORT = process.env.PORT || 3000;
 const allowedOrigins = process.env.CLIENT_ORIGIN
   ? process.env.CLIENT_ORIGIN.split(',').map((o) => o.trim())
   : ['http://localhost:5173', 'http://localhost:5174'];
+
+console.log('Allowed CORS origins:', allowedOrigins);
+
 app.use(cors({
-  origin: (origin, cb) => {    
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+  origin: (origin, cb) => {
+    console.log('CORS request from origin:', origin);
+    if (!origin || allowedOrigins.includes(origin)) {
+      console.log('CORS allowed for:', origin);
+      return cb(null, true);
+    }
+    console.log('CORS blocked for:', origin);
     return cb(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['Content-Type', 'Authorization'],
-  preflightContinue: false,
-  optionsSuccessStatus: 201,
-  maxAge: 86400,
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['Content-Type', 'Authorization'],
-  preflightContinue: false,
-  optionsSuccessStatus: 201,
+  optionsSuccessStatus: 204,
   maxAge: 86400,
 }));
 
