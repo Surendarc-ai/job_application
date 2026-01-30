@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const allowedOrigins = process.env.CLIENT_ORIGIN
-  ? process.env.CLIENT_ORIGIN.split(',').map((o) => o.trim())
+  ? process.env.CLIENT_ORIGIN.split(',').map((o) => o.trim().replace(/\/$/, ''))
   : ['http://localhost:5173', 'http://localhost:5174'];
 
 console.log('Allowed CORS origins:', allowedOrigins);
@@ -22,12 +22,14 @@ app.use(cors({
       console.log('CORS allowed (no origin)');
       return cb(null, true);
     }
+    // Normalize origin (remove trailing slash) for comparison
+    const normalizedOrigin = origin.replace(/\/$/, '');
     // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin)) {
-      console.log('CORS allowed for:', origin);
-      return cb(null, origin); // Return the origin explicitly
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      console.log('CORS allowed for:', normalizedOrigin);
+      return cb(null, origin); // Return the original origin
     }
-    console.log('CORS blocked for:', origin, '- Allowed origins:', allowedOrigins);
+    console.log('CORS blocked for:', normalizedOrigin, '- Allowed origins:', allowedOrigins);
     return cb(null, false);
   },
   credentials: true,
@@ -44,9 +46,12 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Fallback CORS header for allowed origins
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  if (origin) {
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
   }
   next();
 });
