@@ -1,9 +1,19 @@
+import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
+const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
-app.post('/login', async (req, res) => {
+router.get('/login', (_, res) => {
+  res.json({ message: 'Use POST with JSON body: { username, password }' });
+});
+
+router.get('/register', (_, res) => {
+  res.json({ message: 'Use POST with JSON body: { username, password }' });
+});
+
+router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -20,7 +30,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
-app.post('/register', async (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {

@@ -2,15 +2,15 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
-import { Router } from 'express';
+import authRoutes from './routes/auth.js';
+import jobsRoutes from './routes/jobs.js';
 
 const app = express();
-const router = Router();
 const PORT = process.env.PORT || 3000;
 
 const allowedOrigins = process.env.CLIENT_ORIGIN
   ? process.env.CLIENT_ORIGIN.split(',').map((o) => o.trim())
-  : ['http://localhost:5173'];
+  : ['http://localhost:5173', 'http://localhost:5174'];
 app.use(cors({
   origin: (origin, cb) => {    
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
@@ -31,11 +31,11 @@ app.use(cors({
   maxAge: 86400,
 }));
 
-app.use(router);
-
-
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+app.use('/api/auth', authRoutes);
+app.use('/api/jobs', jobsRoutes);
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
