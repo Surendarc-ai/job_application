@@ -14,7 +14,7 @@ async function request(path, options = {}) {
     if (err.message === 'Failed to fetch') {
       throw new Error(`Cannot reach API at ${url}. Check VITE_API_URL and CORS settings.`)
     }
-    throw err
+    throw err;
   }
 }
 
