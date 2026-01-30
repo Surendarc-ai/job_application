@@ -17,11 +17,17 @@ console.log('Allowed CORS origins:', allowedOrigins);
 app.use(cors({
   origin: (origin, cb) => {
     console.log('CORS request from origin:', origin);
-    if (!origin || allowedOrigins.includes(origin)) {
-      console.log('CORS allowed for:', origin);
+    // Allow requests with no origin (same-origin, mobile apps, Postman, etc.)
+    if (!origin) {
+      console.log('CORS allowed (no origin)');
       return cb(null, true);
     }
-    console.log('CORS blocked for:', origin);
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      console.log('CORS allowed for:', origin);
+      return cb(null, origin); // Return the origin explicitly
+    }
+    console.log('CORS blocked for:', origin, '- Allowed origins:', allowedOrigins);
     return cb(null, false);
   },
   credentials: true,
@@ -34,6 +40,16 @@ app.use(cors({
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Fallback CORS header for allowed origins
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  next();
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobsRoutes);
