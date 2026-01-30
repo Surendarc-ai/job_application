@@ -1,11 +1,9 @@
-import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
-const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
-router.post('/login', async (req, res) => {
+app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -22,7 +20,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/register', async (req, res) => {
+app.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {

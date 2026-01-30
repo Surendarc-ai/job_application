@@ -1,11 +1,6 @@
-import { Router } from 'express';
 import Job from '../models/Job.js';
-import { authMiddleware } from '../middleware/auth.js';
 
-const router = Router();
-router.use(authMiddleware);
-
-router.get('/', async (req, res) => {
+app.get('/jobs', async (req, res) => {
   try {
     const jobs = await Job.find({ userId: req.userId }).sort({ date: -1 });
     res.json(jobs);
@@ -14,7 +9,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+app.post('/jobs', async (req, res) => {
   try {
     const { name, description, date } = req.body;
     if (!name || !date) {
@@ -32,7 +27,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+app.get('/:id', async (req, res) => {
   try {
     const job = await Job.findOne({ _id: req.params.id, userId: req.userId });
     if (!job) return res.status(404).json({ error: 'Job not found' });
@@ -42,7 +37,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+app.put('/:id', async (req, res) => {
   try {
     const { name, description, date } = req.body;
     const job = await Job.findOneAndUpdate(
@@ -57,7 +52,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+app.delete('/:id', async (req, res) => {
   try {
     const job = await Job.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     if (!job) return res.status(404).json({ error: 'Job not found' });

@@ -2,10 +2,10 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
-import authRoutes from './routes/auth.js';
-import jobsRoutes from './routes/jobs.js';
+import { Router } from 'express';
 
 const app = express();
+const router = Router();
 const PORT = process.env.PORT || 3000;
 
 const allowedOrigins = process.env.CLIENT_ORIGIN
@@ -21,21 +21,21 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['Content-Type', 'Authorization'],
   preflightContinue: false,
-  optionsSuccessStatus: 200,
+  optionsSuccessStatus: 201,
   maxAge: 86400,
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['Content-Type', 'Authorization'],
   preflightContinue: false,
-  optionsSuccessStatus: 200,
+  optionsSuccessStatus: 201,
   maxAge: 86400,
 }));
 
+app.use(router);
+
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-app.use('/api/auth', authRoutes);
-app.use('/api/jobs', jobsRoutes);
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
