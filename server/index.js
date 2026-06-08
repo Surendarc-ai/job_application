@@ -4,6 +4,8 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import authRoutes from './routes/auth.js';
 import jobsRoutes from './routes/jobs.js';
+import customersRoutes from './routes/customers.js';
+import itemsRoutes from './routes/items.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -58,6 +60,8 @@ app.use((req, res, next) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobsRoutes);
+app.use('/api/customers', customersRoutes);
+app.use('/api/items', itemsRoutes);
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 

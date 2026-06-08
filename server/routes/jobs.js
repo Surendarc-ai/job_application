@@ -7,7 +7,9 @@ router.use(authMiddleware);
 
 router.get('/', async (req, res) => {
   try {
-    const jobs = await Job.find({ userId: req.userId }).sort({ date: -1 });
+    const jobs = await Job.find({ userId: req.userId })
+      .populate('customer', 'firstName lastName')
+      .sort({ date: -1 });
     res.json(jobs);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -16,17 +18,42 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { name, description, date } = req.body;
-    if (!name || !date) {
-      return res.status(400).json({ error: 'Job name and date required' });
+    const {
+      date, customer, officeBranch, paymentStatus, isDC,
+      materialType, thickness, rateMode,
+      runningMeter, piercingCount, ratePerPiece, quantity,
+      addMaterialCost, materialKg, materialRatePerKg,
+      runningMeterRate, piercingRate, totalAmount,
+    } = req.body;
+
+    if (!date || !customer || !materialType || (thickness === null || thickness === undefined)) {
+      return res.status(400).json({ error: 'Date, customer, material type and thickness are required' });
     }
+
     const job = await Job.create({
-      name,
-      description: description || '',
       date: new Date(date),
+      customer,
+      officeBranch: officeBranch || '',
+      paymentStatus: paymentStatus || 'Non-Billed',
+      isDC: !!isDC,
+      materialType,
+      thickness: Number(thickness),
+      rateMode: rateMode || 'runningMeterPiercing',
+      runningMeter: Number(runningMeter) || 0,
+      piercingCount: Number(piercingCount) || 0,
+      ratePerPiece: Number(ratePerPiece) || 0,
+      quantity: Number(quantity) || 1,
+      addMaterialCost: !!addMaterialCost,
+      materialKg: Number(materialKg) || 0,
+      materialRatePerKg: Number(materialRatePerKg) || 0,
+      runningMeterRate: Number(runningMeterRate) || 0,
+      piercingRate: Number(piercingRate) || 0,
+      totalAmount: Number(totalAmount) || 0,
       userId: req.userId,
     });
-    res.status(201).json(job);
+
+    const populated = await Job.findById(job._id).populate('customer', 'firstName lastName');
+    res.status(201).json(populated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -34,7 +61,8 @@ router.post('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const job = await Job.findOne({ _id: req.params.id, userId: req.userId });
+    const job = await Job.findOne({ _id: req.params.id, userId: req.userId })
+      .populate('customer', 'firstName lastName');
     if (!job) return res.status(404).json({ error: 'Job not found' });
     res.json(job);
   } catch (err) {
@@ -44,12 +72,27 @@ router.get('/:id', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const { name, description, date } = req.body;
+    const updates = {};
+    const fields = [
+      'date', 'customer', 'officeBranch', 'paymentStatus', 'isDC',
+      'materialType', 'thickness', 'rateMode',
+      'runningMeter', 'piercingCount', 'ratePerPiece', 'quantity',
+      'addMaterialCost', 'materialKg', 'materialRatePerKg',
+      'runningMeterRate', 'piercingRate', 'totalAmount',
+    ];
+    for (const f of fields) {
+      if (req.body[f] != null) {
+        if (f === 'date') updates[f] = new Date(req.body[f]);
+        else updates[f] = req.body[f];
+      }
+    }
+
     const job = await Job.findOneAndUpdate(
       { _id: req.params.id, userId: req.userId },
-      { ...(name != null && { name }), ...(description != null && { description }), ...(date != null && { date: new Date(date) }) },
+      updates,
       { new: true }
-    );
+    ).populate('customer', 'firstName lastName');
+
     if (!job) return res.status(404).json({ error: 'Job not found' });
     res.json(job);
   } catch (err) {
