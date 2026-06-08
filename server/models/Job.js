@@ -4,14 +4,15 @@ const jobSchema = new mongoose.Schema({
   date: { type: Date, required: true },
   customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
   officeBranch: { type: String, default: '' },
+  description: { type: String, default: '' },
   paymentStatus: {
     type: String,
     enum: ['Non-Billed', 'Billed', 'Paid', 'Partial'],
     default: 'Non-Billed',
   },
   isDC: { type: Boolean, default: false },
-  materialType: { type: String, required: true },
-  thickness: { type: Number, required: true },
+  materialType: { type: String, default: '' },
+  thickness: { type: Number, default: 0 },
   rateMode: {
     type: String,
     enum: ['runningMeterPiercing', 'ratePerPiece'],

@@ -19,25 +19,29 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const {
-      date, customer, officeBranch, paymentStatus, isDC,
+      date, customer, officeBranch, description, paymentStatus, isDC,
       materialType, thickness, rateMode,
       runningMeter, piercingCount, ratePerPiece, quantity,
       addMaterialCost, materialKg, materialRatePerKg,
       runningMeterRate, piercingRate, totalAmount,
     } = req.body;
 
-    if (!date || !customer || !materialType || (thickness === null || thickness === undefined)) {
-      return res.status(400).json({ error: 'Date, customer, material type and thickness are required' });
+    if ((!date || !customer) && !isDC) {
+      return res.status(400).json({ error: 'Date and customer are required' });
+    }
+    if (!isDC && (!materialType || thickness === null || thickness === undefined || thickness === '')) {
+      return res.status(400).json({ error: 'Material type and thickness are required' });
     }
 
     const job = await Job.create({
       date: new Date(date),
       customer,
       officeBranch: officeBranch || '',
+      description: description || '',
       paymentStatus: paymentStatus || 'Non-Billed',
       isDC: !!isDC,
-      materialType,
-      thickness: Number(thickness),
+      materialType: materialType || '',
+      thickness: thickness != null && thickness !== '' ? Number(thickness) : 0,
       rateMode: rateMode || 'runningMeterPiercing',
       runningMeter: Number(runningMeter) || 0,
       piercingCount: Number(piercingCount) || 0,
@@ -74,7 +78,7 @@ router.put('/:id', async (req, res) => {
   try {
     const updates = {};
     const fields = [
-      'date', 'customer', 'officeBranch', 'paymentStatus', 'isDC',
+      'date', 'customer', 'officeBranch', 'description', 'paymentStatus', 'isDC',
       'materialType', 'thickness', 'rateMode',
       'runningMeter', 'piercingCount', 'ratePerPiece', 'quantity',
       'addMaterialCost', 'materialKg', 'materialRatePerKg',
