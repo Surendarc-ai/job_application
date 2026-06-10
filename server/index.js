@@ -24,20 +24,9 @@ console.log('Allowed CORS origins:', allowedOrigins);
 
 app.use(cors({
   origin: (origin, cb) => {
-    console.log('CORS request from origin:', origin);
-    // Allow requests with no origin (same-origin, mobile apps, Postman, etc.)
-    if (!origin) {
-      console.log('CORS allowed (no origin)');
-      return cb(null, true);
-    }
-    // Normalize origin (remove trailing slash) for comparison
+    if (!origin) return cb(null, true);
     const normalizedOrigin = origin.replace(/\/$/, '');
-    // Check if origin is in allowed list
-    if (allowedOrigins.includes(normalizedOrigin)) {
-      console.log('CORS allowed for:', normalizedOrigin);
-      return cb(null, origin); // Return the original origin
-    }
-    console.log('CORS blocked for:', normalizedOrigin, '- Allowed origins:', allowedOrigins);
+    if (allowedOrigins.includes(normalizedOrigin)) return cb(null, origin);
     return cb(null, false);
   },
   credentials: true,
@@ -74,14 +63,24 @@ app.use('/api/roles', rolesRoutes);
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://csurendar8_db_user:eqBz81kmykrZvlLW@jobapplication.fk4wlw8.mongodb.net').then(async () => {
-  console.log('MongoDB connected');
-  await seedRoles();
-  await migrateUsers();
-  await migrateEntityCompanyIds();
-}).catch((err) => {
-  console.error('MongoDB connection error:', err.message);
-});
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://csurendar8_db_user:eqBz81kmykrZvlLW@jobapplication.fk4wlw8.mongodb.net';
 
+async function start() {
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+    });
+    console.log('MongoDB connected');
+    await seedRoles();
+    await migrateUsers();
+    await migrateEntityCompanyIds();
 
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+    app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+  } catch (err) {
+    console.error('Failed to start server:', err.message);
+    process.exit(1);
+  }
+}
+
+start();
