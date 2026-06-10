@@ -6,6 +6,12 @@ import authRoutes from './routes/auth.js';
 import jobsRoutes from './routes/jobs.js';
 import customersRoutes from './routes/customers.js';
 import itemsRoutes from './routes/items.js';
+import usersRoutes from './routes/users.js';
+import companiesRoutes from './routes/companies.js';
+import rolesRoutes from './routes/roles.js';
+import { seedRoles } from './utils/seedRoles.js';
+import { migrateUsers } from './utils/migrateUsers.js';
+import { migrateEntityCompanyIds } from './utils/migrateEntityCompanyIds.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -62,11 +68,17 @@ app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/items', itemsRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/companies', companiesRoutes);
+app.use('/api/roles', rolesRoutes);
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://csurendar8_db_user:eqBz81kmykrZvlLW@jobapplication.fk4wlw8.mongodb.net').then(() => {
+mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://csurendar8_db_user:eqBz81kmykrZvlLW@jobapplication.fk4wlw8.mongodb.net').then(async () => {
   console.log('MongoDB connected');
+  await seedRoles();
+  await migrateUsers();
+  await migrateEntityCompanyIds();
 }).catch((err) => {
   console.error('MongoDB connection error:', err.message);
 });

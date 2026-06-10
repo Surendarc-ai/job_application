@@ -11,8 +11,19 @@ export function authMiddleware(req, res, next) {
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     req.userId = payload.userId;
+    req.userRole = payload.role;
+    req.companyId = payload.companyId || null;
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
+}
+
+export function requireRole(...allowedRoles) {
+  return (req, res, next) => {
+    if (!req.userRole || !allowedRoles.includes(req.userRole)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+    next();
+  };
 }

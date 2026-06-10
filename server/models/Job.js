@@ -29,6 +29,7 @@ const jobSchema = new mongoose.Schema({
   piercingRate: { type: Number, default: 0 },
   totalAmount: { type: Number, default: 0 },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  company_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', default: null },
 }, { timestamps: true });
 
 export default mongoose.model('Job', jobSchema);

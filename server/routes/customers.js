@@ -2,13 +2,18 @@ import { Router } from 'express';
 import Customer from '../models/Customer.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { parseCustomerPrompt } from '../utils/parseCustomerPrompt.js';
+import { getScopeFilter, getCompanyIdForSave } from '../utils/companyScope.js';
 
 const router = Router();
 router.use(authMiddleware);
 
+function customerScope(req) {
+  return { _id: req.params.id, ...getScopeFilter(req) };
+}
+
 router.get('/', async (req, res) => {
   try {
-    const customers = await Customer.find({ userId: req.userId }).sort({ createdAt: -1 });
+    const customers = await Customer.find(getScopeFilter(req)).sort({ createdAt: -1 });
     res.json(customers);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -32,6 +37,7 @@ router.post('/ai-create', async (req, res) => {
     const customer = await Customer.create({
       ...parsed,
       userId: req.userId,
+      company_id: getCompanyIdForSave(req),
     });
 
     res.status(201).json({ customer, parsed });
@@ -54,6 +60,7 @@ router.post('/', async (req, res) => {
       address: address || '',
       gstNumber: gstNumber || '',
       userId: req.userId,
+      company_id: getCompanyIdForSave(req),
     });
     res.status(201).json(customer);
   } catch (err) {
@@ -65,7 +72,7 @@ router.put('/:id', async (req, res) => {
   try {
     const { firstName, lastName, email, phone, address, gstNumber } = req.body;
     const customer = await Customer.findOneAndUpdate(
-      { _id: req.params.id, userId: req.userId },
+      customerScope(req),
       {
         ...(firstName != null && { firstName }),
         ...(lastName != null && { lastName }),
@@ -85,7 +92,7 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    const customer = await Customer.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    const customer = await Customer.findOneAndDelete(customerScope(req));
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
     res.status(204).send();
   } catch (err) {

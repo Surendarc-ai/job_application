@@ -8,6 +8,7 @@ const customerSchema = new mongoose.Schema({
   address: { type: String, default: '' },
   gstNumber: { type: String, default: '' },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  company_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', default: null },
 }, { timestamps: true });
 
 export default mongoose.model('Customer', customerSchema);
