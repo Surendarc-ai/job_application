@@ -73,10 +73,13 @@ async function start() {
     });
     console.log('MongoDB connected');
     await seedRoles();
-    await migrateUsers();
-    await migrateEntityCompanyIds();
 
-    app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      migrateUsers()
+        .then(() => migrateEntityCompanyIds())
+        .catch((err) => console.error('Background migration error:', err.message));
+    });
   } catch (err) {
     console.error('Failed to start server:', err.message);
     process.exit(1);
