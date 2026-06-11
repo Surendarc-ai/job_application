@@ -62,6 +62,57 @@ function buildJobSort(query) {
   return { date: -1 };
 }
 
+async function fetchJobsByCustomerSort(filter, { sortOrder, page, limit, all }) {
+  const dir = sortOrder === 'asc' ? 1 : -1;
+  const customerCollection = Customer.collection.name;
+  const baseStages = [
+    { $match: filter },
+    {
+      $lookup: {
+        from: customerCollection,
+        localField: 'customer',
+        foreignField: '_id',
+        as: 'customerDoc',
+      },
+    },
+    { $unwind: '$customerDoc' },
+    {
+      $addFields: {
+        _sortFirstName: { $toLower: { $ifNull: ['$customerDoc.firstName', ''] } },
+        _sortLastName: { $toLower: { $ifNull: ['$customerDoc.lastName', ''] } },
+      },
+    },
+    { $sort: { _sortFirstName: dir, _sortLastName: dir } },
+    {
+      $addFields: {
+        customer: {
+          _id: '$customerDoc._id',
+          firstName: '$customerDoc.firstName',
+          lastName: '$customerDoc.lastName',
+        },
+      },
+    },
+    { $project: { customerDoc: 0, _sortFirstName: 0, _sortLastName: 0 } },
+  ];
+
+  if (all) {
+    const jobs = await Job.aggregate(baseStages);
+    return { jobs };
+  }
+
+  const [countResult, jobs] = await Promise.all([
+    Job.aggregate([{ $match: filter }, { $count: 'total' }]),
+    Job.aggregate([
+      ...baseStages,
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ]),
+  ]);
+
+  const total = countResult[0]?.total ?? 0;
+  return { jobs, total };
+}
+
 function jobScope(req) {
   return { _id: req.params.id, ...getScopeFilter(req) };
 }
@@ -78,8 +129,30 @@ router.get('/', async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 30));
     const filter = await buildJobFilter(req, req.query);
-    const sort = buildJobSort(req.query);
+    const { sortBy, sortOrder } = req.query;
 
+    if (sortBy === 'customer') {
+      if (all) {
+        const { jobs } = await fetchJobsByCustomerSort(filter, { sortOrder, all: true });
+        return res.json(jobs);
+      }
+
+      const { jobs, total } = await fetchJobsByCustomerSort(filter, {
+        sortOrder,
+        page,
+        limit,
+      });
+
+      return res.json({
+        jobs,
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      });
+    }
+
+    const sort = buildJobSort(req.query);
     const baseQuery = Job.find(filter)
       .populate('customer', 'firstName lastName')
       .sort(sort);

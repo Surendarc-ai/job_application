@@ -11,10 +11,47 @@ function customerScope(req) {
   return { _id: req.params.id, ...getScopeFilter(req) };
 }
 
+function buildCustomerFilter(req, query) {
+  const { search } = query;
+  const filter = { ...getScopeFilter(req) };
+
+  if (search?.trim()) {
+    const regex = new RegExp(search.trim(), 'i');
+    filter.$or = [
+      { firstName: regex },
+      { lastName: regex },
+      { email: regex },
+      { phone: regex },
+      { gstNumber: regex },
+    ];
+  }
+
+  return filter;
+}
+
 router.get('/', async (req, res) => {
   try {
-    const customers = await Customer.find(getScopeFilter(req)).sort({ createdAt: -1 });
-    res.json(customers);
+    const all = req.query.all === 'true';
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 30));
+    const filter = buildCustomerFilter(req, req.query);
+    const baseQuery = Customer.find(filter).sort({ createdAt: -1 });
+
+    if (all) {
+      const customers = await baseQuery;
+      return res.json(customers);
+    }
+
+    const total = await Customer.countDocuments(filter);
+    const customers = await baseQuery.skip((page - 1) * limit).limit(limit);
+
+    res.json({
+      customers,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
