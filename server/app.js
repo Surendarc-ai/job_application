@@ -1,0 +1,68 @@
+import express from 'express';
+import cors from 'cors';
+import authRoutes from './routes/auth.js';
+import jobsRoutes from './routes/jobs.js';
+import customersRoutes from './routes/customers.js';
+import itemsRoutes from './routes/items.js';
+import usersRoutes from './routes/users.js';
+import companiesRoutes from './routes/companies.js';
+import rolesRoutes from './routes/roles.js';
+import { connectDB } from './db.js';
+
+const allowedOrigins = process.env.CLIENT_ORIGIN
+  ? process.env.CLIENT_ORIGIN.split(',').map((o) => o.trim().replace(/\/$/, ''))
+  : ['http://localhost:5173', 'http://localhost:5174'];
+
+const app = express();
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(normalizedOrigin)) return cb(null, origin);
+    return cb(null, false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204,
+  maxAge: 86400,
+}));
+
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+  }
+  next();
+});
+
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('Database connection error:', err.message);
+    res.status(503).json({ error: 'Database unavailable' });
+  }
+});
+
+app.use('/api/auth', authRoutes);
+app.use('/api/jobs', jobsRoutes);
+app.use('/api/customers', customersRoutes);
+app.use('/api/items', itemsRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/companies', companiesRoutes);
+app.use('/api/roles', rolesRoutes);
+
+app.get('/api/health', (_, res) => res.json({ ok: true }));
+
+export default app;

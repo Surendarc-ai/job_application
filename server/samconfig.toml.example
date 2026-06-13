@@ -1,0 +1,9 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "job-app-api"
+resolve_s3 = true
+s3_prefix = "job-app-api"
+region = "ap-south-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "MongoDbUri=\"YOUR_MONGODB_URI\" JwtSecret=\"YOUR_JWT_SECRET\" ClientOrigin=\"https://your-app.vercel.app\""

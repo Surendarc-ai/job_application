@@ -1,0 +1,15 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "jobapplication"
+resolve_s3 = true
+s3_prefix = "jobapplication"
+region = "ap-south-1"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+disable_rollback = true
+parameter_overrides = "ClientOrigin=\"https://jobapplicationfe.vercel.app/\""
+image_repositories = []
+
+[default.global.parameters]
+region = "ap-south-1"
