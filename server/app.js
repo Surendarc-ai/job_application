@@ -13,13 +13,23 @@ const allowedOrigins = process.env.CLIENT_ORIGIN
   ? process.env.CLIENT_ORIGIN.split(',').map((o) => o.trim().replace(/\/$/, ''))
   : ['http://localhost:5173', 'http://localhost:5174'];
 
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  const normalizedOrigin = origin.replace(/\/$/, '');
+  if (allowedOrigins.includes(normalizedOrigin)) return true;
+  // Capacitor / hybrid mobile WebView origins
+  if (/^https?:\/\/localhost(:\d+)?$/.test(normalizedOrigin)) return true;
+  if (normalizedOrigin === 'capacitor://localhost' || normalizedOrigin === 'ionic://localhost') {
+    return true;
+  }
+  return false;
+}
+
 const app = express();
 
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true);
-    const normalizedOrigin = origin.replace(/\/$/, '');
-    if (allowedOrigins.includes(normalizedOrigin)) return cb(null, origin);
+    if (isAllowedOrigin(origin)) return cb(null, origin || true);
     return cb(null, false);
   },
   credentials: true,
@@ -35,12 +45,9 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin) {
-    const normalizedOrigin = origin.replace(/\/$/, '');
-    if (allowedOrigins.includes(normalizedOrigin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-    }
+  if (origin && isAllowedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
   next();
 });
