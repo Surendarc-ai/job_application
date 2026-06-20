@@ -3,6 +3,7 @@ import Job from '../models/Job.js';
 import Customer from '../models/Customer.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { getScopeFilter, getCompanyIdForSave } from '../utils/companyScope.js';
+import { buildSearchTokens, tokenRegex } from '../utils/searchFilter.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -28,18 +29,32 @@ async function buildJobFilter(req, query) {
   }
 
   if (search?.trim()) {
-    const regex = new RegExp(search.trim(), 'i');
+    const tokens = buildSearchTokens(search);
+
     const matchingCustomers = await Customer.find({
       ...getScopeFilter(req),
-      $or: [{ firstName: regex }, { lastName: regex }, { email: regex }],
+      $and: tokens.map((token) => ({
+        $or: [
+          { firstName: tokenRegex(token) },
+          { lastName: tokenRegex(token) },
+          { email: tokenRegex(token) },
+        ],
+      })),
     }).select('_id');
     const customerIds = matchingCustomers.map((c) => c._id);
-    const searchOr = [
-      { materialType: regex },
-      { paymentStatus: regex },
-      { description: regex },
-      { officeBranch: regex },
-    ];
+
+    const jobFieldMatch = {
+      $and: tokens.map((token) => ({
+        $or: [
+          { materialType: tokenRegex(token) },
+          { paymentStatus: tokenRegex(token) },
+          { description: tokenRegex(token) },
+          { officeBranch: tokenRegex(token) },
+        ],
+      })),
+    };
+
+    const searchOr = [jobFieldMatch];
     if (customerIds.length) searchOr.push({ customer: { $in: customerIds } });
 
     if (filter.$or) {

@@ -3,6 +3,7 @@ import Customer from '../models/Customer.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { parseCustomerPrompt } from '../utils/parseCustomerPrompt.js';
 import { getScopeFilter, getCompanyIdForSave } from '../utils/companyScope.js';
+import { buildSearchTokens, tokenRegex } from '../utils/searchFilter.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -16,14 +17,16 @@ function buildCustomerFilter(req, query) {
   const filter = { ...getScopeFilter(req) };
 
   if (search?.trim()) {
-    const regex = new RegExp(search.trim(), 'i');
-    filter.$or = [
-      { firstName: regex },
-      { lastName: regex },
-      { email: regex },
-      { phone: regex },
-      { gstNumber: regex },
-    ];
+    const tokens = buildSearchTokens(search);
+    filter.$and = tokens.map((token) => ({
+      $or: [
+        { firstName: tokenRegex(token) },
+        { lastName: tokenRegex(token) },
+        { email: tokenRegex(token) },
+        { phone: tokenRegex(token) },
+        { gstNumber: tokenRegex(token) },
+      ],
+    }));
   }
 
   return filter;
