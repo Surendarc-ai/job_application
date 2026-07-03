@@ -4,6 +4,7 @@ import { connectDB } from './db.js';
 import { seedRoles } from './utils/seedRoles.js';
 import { migrateUsers } from './utils/migrateUsers.js';
 import { migrateEntityCompanyIds } from './utils/migrateEntityCompanyIds.js';
+import { startExportCron } from './cron/scheduler.js';
 
 const PORT = process.env.PORT || 3000;
 
@@ -20,6 +21,9 @@ async function start() {
 
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
+      if (process.env.EXPORT_CRON_ENABLED === 'true') {
+        startExportCron();
+      }
       migrateUsers()
         .then(() => migrateEntityCompanyIds())
         .catch((err) => console.error('Background migration error:', err.message));
