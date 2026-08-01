@@ -56,7 +56,10 @@ export function buildExportWorkbook(data) {
   const jobsSheet = sheetFromRows('Jobs', [
     'Customer', 'Date', 'Office / Branch', 'DC', 'Material', 'Qty', 'Thickness (mm)',
     'Status', 'Description', 'Total', 'Rate Mode', 'Running Meter', 'Piercing Count',
-    'Rate Per Piece', 'Material Kg', 'Material Rate/Kg', 'Running Meter Rate', 'Piercing Rate',
+    'Rate Per Piece', 'Material Thickness (mm)', 'Material Length (mm)', 'Material Width (mm)',
+    'Material Kg', 'Material Rate/Kg', 'Material Cost',
+    'Bending', 'Bending Hours', 'Rate Per Hour', 'Bending Cost',
+    'Running Meter Rate', 'Piercing Rate',
   ], data.jobs.map((job) => [
     customerName(job.customer),
     formatDisplayDate(job.date),
@@ -72,8 +75,16 @@ export function buildExportWorkbook(data) {
     job.runningMeter ?? 0,
     job.piercingCount ?? 0,
     job.ratePerPiece ?? 0,
+    job.materialThickness ?? 0,
+    job.materialLength ?? 0,
+    job.materialWidth ?? 0,
     job.materialKg ?? 0,
     job.materialRatePerKg ?? 0,
+    job.materialCost ?? 0,
+    job.addBending ? 'Yes' : 'No',
+    job.bendingHours ?? 0,
+    job.bendingRatePerHour ?? 0,
+    job.bendingCost ?? 0,
     job.runningMeterRate ?? 0,
     job.piercingRate ?? 0,
   ]));

@@ -76,7 +76,7 @@ Resources:
           - Id: ExpireOldExports
             Status: Enabled
             Prefix: exports/
-            ExpirationInDays: 90
+            ExpirationInDays: 7
 
   ExportCronFunction:
     Type: AWS::Serverless::Function

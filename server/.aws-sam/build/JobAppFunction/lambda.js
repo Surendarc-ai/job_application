@@ -15801,10 +15801,7 @@ var require_json = __commonJS({
       var index = str.indexOf(char);
       var partial = "";
       if (index !== -1) {
-        partial = str.substring(0, index) + JSON_SYNTAX_CHAR;
-        for (var i = index + 1; i < str.length; i++) {
-          partial += JSON_SYNTAX_CHAR;
-        }
+        partial = str.substring(0, index) + new Array(str.length - index + 1).join(JSON_SYNTAX_CHAR);
       }
       try {
         JSON.parse(partial);
@@ -16579,9 +16576,8 @@ var require_side_channel_list = __commonJS({
           }
         },
         "delete": function(key) {
-          var root = $o && $o.next;
           var deletedNode = listDelete($o, key);
-          if (deletedNode && root && root === deletedNode) {
+          if (deletedNode && $o && !$o.next) {
             $o = void 0;
           }
           return !!deletedNode;
@@ -17573,7 +17569,8 @@ var require_side_channel = __commonJS({
       var channel = {
         assert: function(key) {
           if (!channel.has(key)) {
-            throw new $TypeError("Side channel does not contain " + inspect(key));
+            var keyDesc = key && Object(key) === key ? "the given object key" : inspect(key);
+            throw new $TypeError("Side channel does not contain " + keyDesc);
           }
         },
         "delete": function(key) {
@@ -17597,9 +17594,9 @@ var require_side_channel = __commonJS({
   }
 });
 
-// node_modules/qs/lib/formats.js
+// node_modules/body-parser/node_modules/qs/lib/formats.js
 var require_formats = __commonJS({
-  "node_modules/qs/lib/formats.js"(exports2, module2) {
+  "node_modules/body-parser/node_modules/qs/lib/formats.js"(exports2, module2) {
     "use strict";
     var replace = String.prototype.replace;
     var percentTwenties = /%20/g;
@@ -17623,12 +17620,13 @@ var require_formats = __commonJS({
   }
 });
 
-// node_modules/qs/lib/utils.js
+// node_modules/body-parser/node_modules/qs/lib/utils.js
 var require_utils2 = __commonJS({
-  "node_modules/qs/lib/utils.js"(exports2, module2) {
+  "node_modules/body-parser/node_modules/qs/lib/utils.js"(exports2, module2) {
     "use strict";
     var formats = require_formats();
     var getSideChannel = require_side_channel();
+    var defineProperty = require_es_define_property();
     var has = Object.prototype.hasOwnProperty;
     var isArray = Array.isArray;
     var overflowChannel = getSideChannel();
@@ -17648,7 +17646,7 @@ var require_utils2 = __commonJS({
     var hexTable = (function() {
       var array = [];
       for (var i = 0; i < 256; ++i) {
-        array.push("%" + ((i < 16 ? "0" : "") + i.toString(16)).toUpperCase());
+        array[array.length] = "%" + ((i < 16 ? "0" : "") + i.toString(16)).toUpperCase();
       }
       return array;
     })();
@@ -17660,7 +17658,7 @@ var require_utils2 = __commonJS({
           var compacted = [];
           for (var j = 0; j < obj.length; ++j) {
             if (typeof obj[j] !== "undefined") {
-              compacted.push(obj[j]);
+              compacted[compacted.length] = obj[j];
             }
           }
           item.obj[item.prop] = compacted;
@@ -17676,18 +17674,39 @@ var require_utils2 = __commonJS({
       }
       return obj;
     };
+    var setProperty = function setProperty2(obj, key, value) {
+      if (key === "__proto__" && defineProperty) {
+        defineProperty(obj, key, {
+          configurable: true,
+          enumerable: true,
+          value,
+          writable: true
+        });
+      } else {
+        obj[key] = value;
+      }
+    };
     var merge = function merge2(target, source, options) {
       if (!source) {
         return target;
       }
       if (typeof source !== "object" && typeof source !== "function") {
         if (isArray(target)) {
-          target.push(source);
+          var nextIndex = target.length;
+          if (options && typeof options.arrayLimit === "number" && nextIndex >= options.arrayLimit) {
+            if (options.throwOnLimitExceeded) {
+              throw new RangeError("Array limit exceeded. Only " + options.arrayLimit + " element" + (options.arrayLimit === 1 ? "" : "s") + " allowed in an array.");
+            }
+            return markOverflow(arrayToObject(target.concat(source), options), nextIndex);
+          }
+          target[nextIndex] = source;
         } else if (target && typeof target === "object") {
           if (isOverflow(target)) {
             var newIndex = getMaxIndex(target) + 1;
             target[newIndex] = source;
             setMaxIndex(target, newIndex);
+          } else if (options && options.strictMerge) {
+            return [target, source];
           } else if (options && (options.plainObjects || options.allowPrototypes) || !has.call(Object.prototype, source)) {
             target[source] = true;
           }
@@ -17706,7 +17725,14 @@ var require_utils2 = __commonJS({
           }
           return markOverflow(result, getMaxIndex(source) + 1);
         }
-        return [target].concat(source);
+        var combined = [target].concat(source);
+        if (options && typeof options.arrayLimit === "number" && combined.length > options.arrayLimit) {
+          if (options.throwOnLimitExceeded) {
+            throw new RangeError("Array limit exceeded. Only " + options.arrayLimit + " element" + (options.arrayLimit === 1 ? "" : "s") + " allowed in an array.");
+          }
+          return markOverflow(arrayToObject(combined, options), combined.length - 1);
+        }
+        return combined;
       }
       var mergeTarget = target;
       if (isArray(target) && !isArray(source)) {
@@ -17719,27 +17745,42 @@ var require_utils2 = __commonJS({
             if (targetItem && typeof targetItem === "object" && item && typeof item === "object") {
               target[i] = merge2(targetItem, item, options);
             } else {
-              target.push(item);
+              target[target.length] = item;
             }
           } else {
             target[i] = item;
           }
         });
+        if (options && typeof options.arrayLimit === "number" && target.length > options.arrayLimit) {
+          if (options.throwOnLimitExceeded) {
+            throw new RangeError("Array limit exceeded. Only " + options.arrayLimit + " element" + (options.arrayLimit === 1 ? "" : "s") + " allowed in an array.");
+          }
+          return markOverflow(arrayToObject(target, options), target.length - 1);
+        }
         return target;
       }
       return Object.keys(source).reduce(function(acc, key) {
         var value = source[key];
         if (has.call(acc, key)) {
-          acc[key] = merge2(acc[key], value, options);
+          setProperty(acc, key, merge2(acc[key], value, options));
         } else {
-          acc[key] = value;
+          setProperty(acc, key, value);
+        }
+        if (isOverflow(source) && !isOverflow(acc)) {
+          markOverflow(acc, getMaxIndex(source));
+        }
+        if (isOverflow(acc)) {
+          var keyNum = parseInt(key, 10);
+          if (String(keyNum) === key && keyNum >= 0 && keyNum > getMaxIndex(acc)) {
+            setMaxIndex(acc, keyNum);
+          }
         }
         return acc;
       }, mergeTarget);
     };
     var assign = function assignSingleSource(target, source) {
       return Object.keys(source).reduce(function(acc, key) {
-        acc[key] = source[key];
+        setProperty(acc, key, source[key]);
         return acc;
       }, target);
     };
@@ -17773,6 +17814,13 @@ var require_utils2 = __commonJS({
       var out = "";
       for (var j = 0; j < string.length; j += limit) {
         var segment = string.length >= limit ? string.slice(j, j + limit) : string;
+        if (j + limit < string.length) {
+          var last = segment.charCodeAt(segment.length - 1);
+          if (last >= 55296 && last <= 56319) {
+            segment = segment.slice(0, -1);
+            j -= 1;
+          }
+        }
         var arr = [];
         for (var i = 0; i < segment.length; ++i) {
           var c = segment.charCodeAt(i);
@@ -17802,7 +17850,7 @@ var require_utils2 = __commonJS({
     };
     var compact = function compact2(value) {
       var queue = [{ obj: { o: value }, prop: "o" }];
-      var refs = [];
+      var refs = getSideChannel();
       for (var i = 0; i < queue.length; ++i) {
         var item = queue[i];
         var obj = item.obj[item.prop];
@@ -17810,9 +17858,9 @@ var require_utils2 = __commonJS({
         for (var j = 0; j < keys.length; ++j) {
           var key = keys[j];
           var val = obj[key];
-          if (typeof val === "object" && val !== null && refs.indexOf(val) === -1) {
-            queue.push({ obj, prop: key });
-            refs.push(val);
+          if (typeof val === "object" && val !== null && !refs.has(val)) {
+            queue[queue.length] = { obj, prop: key };
+            refs.set(val, true);
           }
         }
       }
@@ -17828,8 +17876,11 @@ var require_utils2 = __commonJS({
       }
       return !!(obj.constructor && obj.constructor.isBuffer && obj.constructor.isBuffer(obj));
     };
-    var combine = function combine2(a, b, arrayLimit, plainObjects) {
+    var combine = function combine2(a, b, arrayLimit, plainObjects, throwOnLimitExceeded) {
       if (isOverflow(a)) {
+        if (throwOnLimitExceeded) {
+          throw new RangeError("Array limit exceeded. Only " + arrayLimit + " element" + (arrayLimit === 1 ? "" : "s") + " allowed in an array.");
+        }
         var newIndex = getMaxIndex(a) + 1;
         a[newIndex] = b;
         setMaxIndex(a, newIndex);
@@ -17837,6 +17888,9 @@ var require_utils2 = __commonJS({
       }
       var result = [].concat(a, b);
       if (result.length > arrayLimit) {
+        if (throwOnLimitExceeded) {
+          throw new RangeError("Array limit exceeded. Only " + arrayLimit + " element" + (arrayLimit === 1 ? "" : "s") + " allowed in an array.");
+        }
         return markOverflow(arrayToObject(result, { plainObjects }), result.length - 1);
       }
       return result;
@@ -17845,7 +17899,7 @@ var require_utils2 = __commonJS({
       if (isArray(val)) {
         var mapped = [];
         for (var i = 0; i < val.length; i += 1) {
-          mapped.push(fn(val[i]));
+          mapped[mapped.length] = fn(val[i]);
         }
         return mapped;
       }
@@ -17861,15 +17915,16 @@ var require_utils2 = __commonJS({
       isBuffer,
       isOverflow,
       isRegExp,
+      markOverflow,
       maybeMap,
       merge
     };
   }
 });
 
-// node_modules/qs/lib/stringify.js
+// node_modules/body-parser/node_modules/qs/lib/stringify.js
 var require_stringify = __commonJS({
-  "node_modules/qs/lib/stringify.js"(exports2, module2) {
+  "node_modules/body-parser/node_modules/qs/lib/stringify.js"(exports2, module2) {
     "use strict";
     var getSideChannel = require_side_channel();
     var utils = require_utils2();
@@ -17955,7 +18010,7 @@ var require_stringify = __commonJS({
       }
       if (obj === null) {
         if (strictNullHandling) {
-          return encoder && !encodeValuesOnly ? encoder(prefix, defaults.encoder, charset, "key", format) : prefix;
+          return formatter(encoder && !encodeValuesOnly ? encoder(prefix, defaults.encoder, charset, "key", format) : prefix);
         }
         obj = "";
       }
@@ -17973,7 +18028,9 @@ var require_stringify = __commonJS({
       var objKeys;
       if (generateArrayPrefix === "comma" && isArray(obj)) {
         if (encodeValuesOnly && encoder) {
-          obj = utils.maybeMap(obj, encoder);
+          obj = utils.maybeMap(obj, function(v) {
+            return v == null ? v : encoder(v);
+          });
         }
         objKeys = [{ value: obj.length > 0 ? obj.join(",") || null : void 0 }];
       } else if (isArray(filter)) {
@@ -18111,6 +18168,9 @@ var require_stringify = __commonJS({
       var sideChannel = getSideChannel();
       for (var i = 0; i < objKeys.length; ++i) {
         var key = objKeys[i];
+        if (typeof key === "undefined" || key === null) {
+          continue;
+        }
         var value = obj[key];
         if (options.skipNulls && value === null) {
           continue;
@@ -18140,9 +18200,9 @@ var require_stringify = __commonJS({
       var prefix = options.addQueryPrefix === true ? "?" : "";
       if (options.charsetSentinel) {
         if (options.charset === "iso-8859-1") {
-          prefix += "utf8=%26%2310003%3B&";
+          prefix += "utf8=%26%2310003%3B" + options.delimiter;
         } else {
-          prefix += "utf8=%E2%9C%93&";
+          prefix += "utf8=%E2%9C%93" + options.delimiter;
         }
       }
       return joined.length > 0 ? prefix + joined : "";
@@ -18150,9 +18210,9 @@ var require_stringify = __commonJS({
   }
 });
 
-// node_modules/qs/lib/parse.js
+// node_modules/body-parser/node_modules/qs/lib/parse.js
 var require_parse = __commonJS({
-  "node_modules/qs/lib/parse.js"(exports2, module2) {
+  "node_modules/body-parser/node_modules/qs/lib/parse.js"(exports2, module2) {
     "use strict";
     var utils = require_utils2();
     var has = Object.prototype.hasOwnProperty;
@@ -18177,6 +18237,7 @@ var require_parse = __commonJS({
       parseArrays: true,
       plainObjects: false,
       strictDepth: false,
+      strictMerge: true,
       strictNullHandling: false,
       throwOnLimitExceeded: false
     };
@@ -18185,8 +18246,19 @@ var require_parse = __commonJS({
         return String.fromCharCode(parseInt(numberStr, 10));
       });
     };
-    var parseArrayValue = function(val, options, currentArrayLength) {
+    var parseArrayValue = function(val, options, currentArrayLength, isFlatArrayValue) {
       if (val && typeof val === "string" && options.comma && val.indexOf(",") > -1) {
+        if (isFlatArrayValue && options.throwOnLimitExceeded) {
+          var commaCount = 0;
+          var commaIndex = val.indexOf(",");
+          while (commaIndex > -1) {
+            commaCount += 1;
+            if (commaCount >= options.arrayLimit) {
+              throw new RangeError("Array limit exceeded. Only " + options.arrayLimit + " element" + (options.arrayLimit === 1 ? "" : "s") + " allowed in an array.");
+            }
+            commaIndex = val.indexOf(",", commaIndex + 1);
+          }
+        }
         return val.split(",");
       }
       if (options.throwOnLimitExceeded && currentArrayLength >= options.arrayLimit) {
@@ -18203,9 +18275,9 @@ var require_parse = __commonJS({
       var limit = options.parameterLimit === Infinity ? void 0 : options.parameterLimit;
       var parts = cleanStr.split(
         options.delimiter,
-        options.throwOnLimitExceeded ? limit + 1 : limit
+        options.throwOnLimitExceeded && typeof limit !== "undefined" ? limit + 1 : limit
       );
-      if (options.throwOnLimitExceeded && parts.length > limit) {
+      if (options.throwOnLimitExceeded && typeof limit !== "undefined" && parts.length > limit) {
         throw new RangeError("Parameter limit exceeded. Only " + limit + " parameter" + (limit === 1 ? "" : "s") + " allowed.");
       }
       var skipIndex = -1;
@@ -18243,7 +18315,8 @@ var require_parse = __commonJS({
               parseArrayValue(
                 part.slice(pos + 1),
                 options,
-                isArray(obj[key]) ? obj[key].length : 0
+                isArray(obj[key]) ? obj[key].length : 0,
+                part.indexOf("[]=") === -1
               ),
               function(encodedVal) {
                 return options.decoder(encodedVal, defaults.decoder, charset, "value");
@@ -18257,14 +18330,18 @@ var require_parse = __commonJS({
         if (part.indexOf("[]=") > -1) {
           val = isArray(val) ? [val] : val;
         }
+        if (options.comma && isArray(val) && val.length > options.arrayLimit) {
+          val = utils.combine([], val, options.arrayLimit, options.plainObjects, options.throwOnLimitExceeded);
+        }
         if (key !== null) {
           var existing = has.call(obj, key);
-          if (existing && options.duplicates === "combine") {
+          if (existing && (options.duplicates === "combine" || part.indexOf("[]=") > -1)) {
             obj[key] = utils.combine(
               obj[key],
               val,
               options.arrayLimit,
-              options.plainObjects
+              options.plainObjects,
+              options.throwOnLimitExceeded
             );
           } else if (!existing || options.duplicates === "last") {
             obj[key] = val;
@@ -18291,7 +18368,8 @@ var require_parse = __commonJS({
               [],
               leaf,
               options.arrayLimit,
-              options.plainObjects
+              options.plainObjects,
+              options.throwOnLimitExceeded
             );
           }
         } else {
@@ -18299,11 +18377,17 @@ var require_parse = __commonJS({
           var cleanRoot = root.charAt(0) === "[" && root.charAt(root.length - 1) === "]" ? root.slice(1, -1) : root;
           var decodedRoot = options.decodeDotInKeys ? cleanRoot.replace(/%2E/g, ".") : cleanRoot;
           var index = parseInt(decodedRoot, 10);
+          var isValidArrayIndex = !isNaN(index) && root !== decodedRoot && String(index) === decodedRoot && index >= 0 && options.parseArrays;
           if (!options.parseArrays && decodedRoot === "") {
             obj = { 0: leaf };
-          } else if (!isNaN(index) && root !== decodedRoot && String(index) === decodedRoot && index >= 0 && (options.parseArrays && index <= options.arrayLimit)) {
+          } else if (isValidArrayIndex && index < options.arrayLimit) {
             obj = [];
             obj[index] = leaf;
+          } else if (isValidArrayIndex && options.throwOnLimitExceeded) {
+            throw new RangeError("Array limit exceeded. Only " + options.arrayLimit + " element" + (options.arrayLimit === 1 ? "" : "s") + " allowed in an array.");
+          } else if (isValidArrayIndex) {
+            obj[index] = leaf;
+            utils.markOverflow(obj, index);
           } else if (decodedRoot !== "__proto__") {
             obj[decodedRoot] = leaf;
           }
@@ -18312,8 +18396,8 @@ var require_parse = __commonJS({
       }
       return leaf;
     };
-    var splitKeyIntoSegments = function splitKeyIntoSegments2(givenKey, options) {
-      var key = options.allowDots ? givenKey.replace(/\.([^.[]+)/g, "[$1]") : givenKey;
+    var splitKeyIntoSegments = function splitKeyIntoSegments2(originalKey, options) {
+      var key = options.allowDots ? originalKey.replace(/\.([^.[]+)/g, "[$1]") : originalKey;
       if (options.depth <= 0) {
         if (!options.plainObjects && has.call(Object.prototype, key)) {
           if (!options.allowPrototypes) {
@@ -18322,37 +18406,56 @@ var require_parse = __commonJS({
         }
         return [key];
       }
-      var brackets = /(\[[^[\]]*])/;
-      var child = /(\[[^[\]]*])/g;
-      var segment = brackets.exec(key);
-      var parent = segment ? key.slice(0, segment.index) : key;
-      var keys = [];
+      var segments = [];
+      var first = key.indexOf("[");
+      var parent = first >= 0 ? key.slice(0, first) : key;
       if (parent) {
         if (!options.plainObjects && has.call(Object.prototype, parent)) {
           if (!options.allowPrototypes) {
             return;
           }
         }
-        keys.push(parent);
+        segments[segments.length] = parent;
       }
-      var i = 0;
-      while ((segment = child.exec(key)) !== null && i < options.depth) {
-        i += 1;
-        var segmentContent = segment[1].slice(1, -1);
-        if (!options.plainObjects && has.call(Object.prototype, segmentContent)) {
-          if (!options.allowPrototypes) {
-            return;
+      var n = key.length;
+      var open = first;
+      var collected = 0;
+      while (open >= 0 && collected < options.depth) {
+        var level = 1;
+        var i = open + 1;
+        var close = -1;
+        while (i < n && close < 0) {
+          var cu = key.charCodeAt(i);
+          if (cu === 91) {
+            level += 1;
+          } else if (cu === 93) {
+            level -= 1;
+            if (level === 0) {
+              close = i;
+            }
           }
+          i += 1;
         }
-        keys.push(segment[1]);
+        if (close < 0) {
+          segments[segments.length] = "[" + key.slice(open) + "]";
+          return segments;
+        }
+        var seg = key.slice(open, close + 1);
+        var content = seg.slice(1, -1);
+        if (!options.plainObjects && has.call(Object.prototype, content) && !options.allowPrototypes) {
+          return;
+        }
+        segments[segments.length] = seg;
+        collected += 1;
+        open = key.indexOf("[", close + 1);
       }
-      if (segment) {
+      if (open >= 0) {
         if (options.strictDepth === true) {
           throw new RangeError("Input depth exceeded depth option of " + options.depth + " and strictDepth is true");
         }
-        keys.push("[" + key.slice(segment.index) + "]");
+        segments[segments.length] = "[" + key.slice(open) + "]";
       }
-      return keys;
+      return segments;
     };
     var parseKeys = function parseQueryStringKeys(givenKey, val, options, valuesParsed) {
       if (!givenKey) {
@@ -18410,6 +18513,7 @@ var require_parse = __commonJS({
         parseArrays: opts.parseArrays !== false,
         plainObjects: typeof opts.plainObjects === "boolean" ? opts.plainObjects : defaults.plainObjects,
         strictDepth: typeof opts.strictDepth === "boolean" ? !!opts.strictDepth : defaults.strictDepth,
+        strictMerge: typeof opts.strictMerge === "boolean" ? !!opts.strictMerge : defaults.strictMerge,
         strictNullHandling: typeof opts.strictNullHandling === "boolean" ? opts.strictNullHandling : defaults.strictNullHandling,
         throwOnLimitExceeded: typeof opts.throwOnLimitExceeded === "boolean" ? opts.throwOnLimitExceeded : false
       };
@@ -18435,9 +18539,9 @@ var require_parse = __commonJS({
   }
 });
 
-// node_modules/qs/lib/index.js
+// node_modules/body-parser/node_modules/qs/lib/index.js
 var require_lib2 = __commonJS({
-  "node_modules/qs/lib/index.js"(exports2, module2) {
+  "node_modules/body-parser/node_modules/qs/lib/index.js"(exports2, module2) {
     "use strict";
     var stringify = require_stringify();
     var parse = require_parse();
@@ -18568,14 +18672,14 @@ var require_urlencoded = __commonJS({
     }
     function parameterCount(body, limit) {
       var count = 0;
-      var index = 0;
-      while ((index = body.indexOf("&", index)) !== -1) {
+      var index = -1;
+      do {
         count++;
-        index++;
-        if (count === limit) {
+        if (count > limit) {
           return void 0;
         }
-      }
+        index = body.indexOf("&", index + 1);
+      } while (index !== -1);
       return count;
     }
     function parser(name) {
@@ -19119,6 +19223,7 @@ var require_path_to_regexp = __commonJS({
           }
           pos = offset + match.length;
           if (match === "*") {
+            backtrack = "";
             extraOffset += 3;
             return "(.*)";
           }
@@ -19139,6 +19244,7 @@ var require_path_to_regexp = __commonJS({
             offset: offset + extraOffset
           });
           var result = "(?:" + format + slash + capture + (star ? "((?:[/" + format + "].+?)?)" : "") + ")" + optional;
+          backtrack = "";
           extraOffset += result.length - match.length;
           return result;
         }
@@ -19834,13 +19940,896 @@ var require_init = __commonJS({
   }
 });
 
+// node_modules/qs/lib/formats.js
+var require_formats2 = __commonJS({
+  "node_modules/qs/lib/formats.js"(exports2, module2) {
+    "use strict";
+    var replace = String.prototype.replace;
+    var percentTwenties = /%20/g;
+    var Format = {
+      RFC1738: "RFC1738",
+      RFC3986: "RFC3986"
+    };
+    module2.exports = {
+      "default": Format.RFC3986,
+      formatters: {
+        RFC1738: function(value) {
+          return replace.call(value, percentTwenties, "+");
+        },
+        RFC3986: function(value) {
+          return String(value);
+        }
+      },
+      RFC1738: Format.RFC1738,
+      RFC3986: Format.RFC3986
+    };
+  }
+});
+
+// node_modules/qs/lib/utils.js
+var require_utils3 = __commonJS({
+  "node_modules/qs/lib/utils.js"(exports2, module2) {
+    "use strict";
+    var formats = require_formats2();
+    var getSideChannel = require_side_channel();
+    var has = Object.prototype.hasOwnProperty;
+    var isArray = Array.isArray;
+    var overflowChannel = getSideChannel();
+    var markOverflow = function markOverflow2(obj, maxIndex) {
+      overflowChannel.set(obj, maxIndex);
+      return obj;
+    };
+    var isOverflow = function isOverflow2(obj) {
+      return overflowChannel.has(obj);
+    };
+    var getMaxIndex = function getMaxIndex2(obj) {
+      return overflowChannel.get(obj);
+    };
+    var setMaxIndex = function setMaxIndex2(obj, maxIndex) {
+      overflowChannel.set(obj, maxIndex);
+    };
+    var hexTable = (function() {
+      var array = [];
+      for (var i = 0; i < 256; ++i) {
+        array[array.length] = "%" + ((i < 16 ? "0" : "") + i.toString(16)).toUpperCase();
+      }
+      return array;
+    })();
+    var compactQueue = function compactQueue2(queue) {
+      while (queue.length > 1) {
+        var item = queue.pop();
+        var obj = item.obj[item.prop];
+        if (isArray(obj)) {
+          var compacted = [];
+          for (var j = 0; j < obj.length; ++j) {
+            if (typeof obj[j] !== "undefined") {
+              compacted[compacted.length] = obj[j];
+            }
+          }
+          item.obj[item.prop] = compacted;
+        }
+      }
+    };
+    var arrayToObject = function arrayToObject2(source, options) {
+      var obj = options && options.plainObjects ? { __proto__: null } : {};
+      for (var i = 0; i < source.length; ++i) {
+        if (typeof source[i] !== "undefined") {
+          obj[i] = source[i];
+        }
+      }
+      return obj;
+    };
+    var merge = function merge2(target, source, options) {
+      if (!source) {
+        return target;
+      }
+      if (typeof source !== "object" && typeof source !== "function") {
+        if (isArray(target)) {
+          var nextIndex = target.length;
+          if (options && typeof options.arrayLimit === "number" && nextIndex > options.arrayLimit) {
+            return markOverflow(arrayToObject(target.concat(source), options), nextIndex);
+          }
+          target[nextIndex] = source;
+        } else if (target && typeof target === "object") {
+          if (isOverflow(target)) {
+            var newIndex = getMaxIndex(target) + 1;
+            target[newIndex] = source;
+            setMaxIndex(target, newIndex);
+          } else if (options && (options.plainObjects || options.allowPrototypes) || !has.call(Object.prototype, source)) {
+            target[source] = true;
+          }
+        } else {
+          return [target, source];
+        }
+        return target;
+      }
+      if (!target || typeof target !== "object") {
+        if (isOverflow(source)) {
+          var sourceKeys = Object.keys(source);
+          var result = options && options.plainObjects ? { __proto__: null, 0: target } : { 0: target };
+          for (var m = 0; m < sourceKeys.length; m++) {
+            var oldKey = parseInt(sourceKeys[m], 10);
+            result[oldKey + 1] = source[sourceKeys[m]];
+          }
+          return markOverflow(result, getMaxIndex(source) + 1);
+        }
+        var combined = [target].concat(source);
+        if (options && typeof options.arrayLimit === "number" && combined.length > options.arrayLimit) {
+          return markOverflow(arrayToObject(combined, options), combined.length - 1);
+        }
+        return combined;
+      }
+      var mergeTarget = target;
+      if (isArray(target) && !isArray(source)) {
+        mergeTarget = arrayToObject(target, options);
+      }
+      if (isArray(target) && isArray(source)) {
+        source.forEach(function(item, i) {
+          if (has.call(target, i)) {
+            var targetItem = target[i];
+            if (targetItem && typeof targetItem === "object" && item && typeof item === "object") {
+              target[i] = merge2(targetItem, item, options);
+            } else {
+              target[target.length] = item;
+            }
+          } else {
+            target[i] = item;
+          }
+        });
+        return target;
+      }
+      return Object.keys(source).reduce(function(acc, key) {
+        var value = source[key];
+        if (has.call(acc, key)) {
+          acc[key] = merge2(acc[key], value, options);
+        } else {
+          acc[key] = value;
+        }
+        if (isOverflow(source) && !isOverflow(acc)) {
+          markOverflow(acc, getMaxIndex(source));
+        }
+        if (isOverflow(acc)) {
+          var keyNum = parseInt(key, 10);
+          if (String(keyNum) === key && keyNum >= 0 && keyNum > getMaxIndex(acc)) {
+            setMaxIndex(acc, keyNum);
+          }
+        }
+        return acc;
+      }, mergeTarget);
+    };
+    var assign = function assignSingleSource(target, source) {
+      return Object.keys(source).reduce(function(acc, key) {
+        acc[key] = source[key];
+        return acc;
+      }, target);
+    };
+    var decode = function(str, defaultDecoder, charset) {
+      var strWithoutPlus = str.replace(/\+/g, " ");
+      if (charset === "iso-8859-1") {
+        return strWithoutPlus.replace(/%[0-9a-f]{2}/gi, unescape);
+      }
+      try {
+        return decodeURIComponent(strWithoutPlus);
+      } catch (e) {
+        return strWithoutPlus;
+      }
+    };
+    var limit = 1024;
+    var encode = function encode2(str, defaultEncoder, charset, kind, format) {
+      if (str.length === 0) {
+        return str;
+      }
+      var string = str;
+      if (typeof str === "symbol") {
+        string = Symbol.prototype.toString.call(str);
+      } else if (typeof str !== "string") {
+        string = String(str);
+      }
+      if (charset === "iso-8859-1") {
+        return escape(string).replace(/%u[0-9a-f]{4}/gi, function($0) {
+          return "%26%23" + parseInt($0.slice(2), 16) + "%3B";
+        });
+      }
+      var out = "";
+      for (var j = 0; j < string.length; j += limit) {
+        var segment = string.length >= limit ? string.slice(j, j + limit) : string;
+        var arr = [];
+        for (var i = 0; i < segment.length; ++i) {
+          var c = segment.charCodeAt(i);
+          if (c === 45 || c === 46 || c === 95 || c === 126 || c >= 48 && c <= 57 || c >= 65 && c <= 90 || c >= 97 && c <= 122 || format === formats.RFC1738 && (c === 40 || c === 41)) {
+            arr[arr.length] = segment.charAt(i);
+            continue;
+          }
+          if (c < 128) {
+            arr[arr.length] = hexTable[c];
+            continue;
+          }
+          if (c < 2048) {
+            arr[arr.length] = hexTable[192 | c >> 6] + hexTable[128 | c & 63];
+            continue;
+          }
+          if (c < 55296 || c >= 57344) {
+            arr[arr.length] = hexTable[224 | c >> 12] + hexTable[128 | c >> 6 & 63] + hexTable[128 | c & 63];
+            continue;
+          }
+          i += 1;
+          c = 65536 + ((c & 1023) << 10 | segment.charCodeAt(i) & 1023);
+          arr[arr.length] = hexTable[240 | c >> 18] + hexTable[128 | c >> 12 & 63] + hexTable[128 | c >> 6 & 63] + hexTable[128 | c & 63];
+        }
+        out += arr.join("");
+      }
+      return out;
+    };
+    var compact = function compact2(value) {
+      var queue = [{ obj: { o: value }, prop: "o" }];
+      var refs = [];
+      for (var i = 0; i < queue.length; ++i) {
+        var item = queue[i];
+        var obj = item.obj[item.prop];
+        var keys = Object.keys(obj);
+        for (var j = 0; j < keys.length; ++j) {
+          var key = keys[j];
+          var val = obj[key];
+          if (typeof val === "object" && val !== null && refs.indexOf(val) === -1) {
+            queue[queue.length] = { obj, prop: key };
+            refs[refs.length] = val;
+          }
+        }
+      }
+      compactQueue(queue);
+      return value;
+    };
+    var isRegExp = function isRegExp2(obj) {
+      return Object.prototype.toString.call(obj) === "[object RegExp]";
+    };
+    var isBuffer = function isBuffer2(obj) {
+      if (!obj || typeof obj !== "object") {
+        return false;
+      }
+      return !!(obj.constructor && obj.constructor.isBuffer && obj.constructor.isBuffer(obj));
+    };
+    var combine = function combine2(a, b, arrayLimit, plainObjects) {
+      if (isOverflow(a)) {
+        var newIndex = getMaxIndex(a) + 1;
+        a[newIndex] = b;
+        setMaxIndex(a, newIndex);
+        return a;
+      }
+      var result = [].concat(a, b);
+      if (result.length > arrayLimit) {
+        return markOverflow(arrayToObject(result, { plainObjects }), result.length - 1);
+      }
+      return result;
+    };
+    var maybeMap = function maybeMap2(val, fn) {
+      if (isArray(val)) {
+        var mapped = [];
+        for (var i = 0; i < val.length; i += 1) {
+          mapped[mapped.length] = fn(val[i]);
+        }
+        return mapped;
+      }
+      return fn(val);
+    };
+    module2.exports = {
+      arrayToObject,
+      assign,
+      combine,
+      compact,
+      decode,
+      encode,
+      isBuffer,
+      isOverflow,
+      isRegExp,
+      markOverflow,
+      maybeMap,
+      merge
+    };
+  }
+});
+
+// node_modules/qs/lib/stringify.js
+var require_stringify2 = __commonJS({
+  "node_modules/qs/lib/stringify.js"(exports2, module2) {
+    "use strict";
+    var getSideChannel = require_side_channel();
+    var utils = require_utils3();
+    var formats = require_formats2();
+    var has = Object.prototype.hasOwnProperty;
+    var arrayPrefixGenerators = {
+      brackets: function brackets(prefix) {
+        return prefix + "[]";
+      },
+      comma: "comma",
+      indices: function indices(prefix, key) {
+        return prefix + "[" + key + "]";
+      },
+      repeat: function repeat(prefix) {
+        return prefix;
+      }
+    };
+    var isArray = Array.isArray;
+    var push = Array.prototype.push;
+    var pushToArray = function(arr, valueOrArray) {
+      push.apply(arr, isArray(valueOrArray) ? valueOrArray : [valueOrArray]);
+    };
+    var toISO = Date.prototype.toISOString;
+    var defaultFormat = formats["default"];
+    var defaults = {
+      addQueryPrefix: false,
+      allowDots: false,
+      allowEmptyArrays: false,
+      arrayFormat: "indices",
+      charset: "utf-8",
+      charsetSentinel: false,
+      commaRoundTrip: false,
+      delimiter: "&",
+      encode: true,
+      encodeDotInKeys: false,
+      encoder: utils.encode,
+      encodeValuesOnly: false,
+      filter: void 0,
+      format: defaultFormat,
+      formatter: formats.formatters[defaultFormat],
+      // deprecated
+      indices: false,
+      serializeDate: function serializeDate(date) {
+        return toISO.call(date);
+      },
+      skipNulls: false,
+      strictNullHandling: false
+    };
+    var isNonNullishPrimitive = function isNonNullishPrimitive2(v) {
+      return typeof v === "string" || typeof v === "number" || typeof v === "boolean" || typeof v === "symbol" || typeof v === "bigint";
+    };
+    var sentinel = {};
+    var stringify = function stringify2(object, prefix, generateArrayPrefix, commaRoundTrip, allowEmptyArrays, strictNullHandling, skipNulls, encodeDotInKeys, encoder, filter, sort, allowDots, serializeDate, format, formatter, encodeValuesOnly, charset, sideChannel) {
+      var obj = object;
+      var tmpSc = sideChannel;
+      var step = 0;
+      var findFlag = false;
+      while ((tmpSc = tmpSc.get(sentinel)) !== void 0 && !findFlag) {
+        var pos = tmpSc.get(object);
+        step += 1;
+        if (typeof pos !== "undefined") {
+          if (pos === step) {
+            throw new RangeError("Cyclic object value");
+          } else {
+            findFlag = true;
+          }
+        }
+        if (typeof tmpSc.get(sentinel) === "undefined") {
+          step = 0;
+        }
+      }
+      if (typeof filter === "function") {
+        obj = filter(prefix, obj);
+      } else if (obj instanceof Date) {
+        obj = serializeDate(obj);
+      } else if (generateArrayPrefix === "comma" && isArray(obj)) {
+        obj = utils.maybeMap(obj, function(value2) {
+          if (value2 instanceof Date) {
+            return serializeDate(value2);
+          }
+          return value2;
+        });
+      }
+      if (obj === null) {
+        if (strictNullHandling) {
+          return encoder && !encodeValuesOnly ? encoder(prefix, defaults.encoder, charset, "key", format) : prefix;
+        }
+        obj = "";
+      }
+      if (isNonNullishPrimitive(obj) || utils.isBuffer(obj)) {
+        if (encoder) {
+          var keyValue = encodeValuesOnly ? prefix : encoder(prefix, defaults.encoder, charset, "key", format);
+          return [formatter(keyValue) + "=" + formatter(encoder(obj, defaults.encoder, charset, "value", format))];
+        }
+        return [formatter(prefix) + "=" + formatter(String(obj))];
+      }
+      var values = [];
+      if (typeof obj === "undefined") {
+        return values;
+      }
+      var objKeys;
+      if (generateArrayPrefix === "comma" && isArray(obj)) {
+        if (encodeValuesOnly && encoder) {
+          obj = utils.maybeMap(obj, encoder);
+        }
+        objKeys = [{ value: obj.length > 0 ? obj.join(",") || null : void 0 }];
+      } else if (isArray(filter)) {
+        objKeys = filter;
+      } else {
+        var keys = Object.keys(obj);
+        objKeys = sort ? keys.sort(sort) : keys;
+      }
+      var encodedPrefix = encodeDotInKeys ? String(prefix).replace(/\./g, "%2E") : String(prefix);
+      var adjustedPrefix = commaRoundTrip && isArray(obj) && obj.length === 1 ? encodedPrefix + "[]" : encodedPrefix;
+      if (allowEmptyArrays && isArray(obj) && obj.length === 0) {
+        return adjustedPrefix + "[]";
+      }
+      for (var j = 0; j < objKeys.length; ++j) {
+        var key = objKeys[j];
+        var value = typeof key === "object" && key && typeof key.value !== "undefined" ? key.value : obj[key];
+        if (skipNulls && value === null) {
+          continue;
+        }
+        var encodedKey = allowDots && encodeDotInKeys ? String(key).replace(/\./g, "%2E") : String(key);
+        var keyPrefix = isArray(obj) ? typeof generateArrayPrefix === "function" ? generateArrayPrefix(adjustedPrefix, encodedKey) : adjustedPrefix : adjustedPrefix + (allowDots ? "." + encodedKey : "[" + encodedKey + "]");
+        sideChannel.set(object, step);
+        var valueSideChannel = getSideChannel();
+        valueSideChannel.set(sentinel, sideChannel);
+        pushToArray(values, stringify2(
+          value,
+          keyPrefix,
+          generateArrayPrefix,
+          commaRoundTrip,
+          allowEmptyArrays,
+          strictNullHandling,
+          skipNulls,
+          encodeDotInKeys,
+          generateArrayPrefix === "comma" && encodeValuesOnly && isArray(obj) ? null : encoder,
+          filter,
+          sort,
+          allowDots,
+          serializeDate,
+          format,
+          formatter,
+          encodeValuesOnly,
+          charset,
+          valueSideChannel
+        ));
+      }
+      return values;
+    };
+    var normalizeStringifyOptions = function normalizeStringifyOptions2(opts) {
+      if (!opts) {
+        return defaults;
+      }
+      if (typeof opts.allowEmptyArrays !== "undefined" && typeof opts.allowEmptyArrays !== "boolean") {
+        throw new TypeError("`allowEmptyArrays` option can only be `true` or `false`, when provided");
+      }
+      if (typeof opts.encodeDotInKeys !== "undefined" && typeof opts.encodeDotInKeys !== "boolean") {
+        throw new TypeError("`encodeDotInKeys` option can only be `true` or `false`, when provided");
+      }
+      if (opts.encoder !== null && typeof opts.encoder !== "undefined" && typeof opts.encoder !== "function") {
+        throw new TypeError("Encoder has to be a function.");
+      }
+      var charset = opts.charset || defaults.charset;
+      if (typeof opts.charset !== "undefined" && opts.charset !== "utf-8" && opts.charset !== "iso-8859-1") {
+        throw new TypeError("The charset option must be either utf-8, iso-8859-1, or undefined");
+      }
+      var format = formats["default"];
+      if (typeof opts.format !== "undefined") {
+        if (!has.call(formats.formatters, opts.format)) {
+          throw new TypeError("Unknown format option provided.");
+        }
+        format = opts.format;
+      }
+      var formatter = formats.formatters[format];
+      var filter = defaults.filter;
+      if (typeof opts.filter === "function" || isArray(opts.filter)) {
+        filter = opts.filter;
+      }
+      var arrayFormat;
+      if (opts.arrayFormat in arrayPrefixGenerators) {
+        arrayFormat = opts.arrayFormat;
+      } else if ("indices" in opts) {
+        arrayFormat = opts.indices ? "indices" : "repeat";
+      } else {
+        arrayFormat = defaults.arrayFormat;
+      }
+      if ("commaRoundTrip" in opts && typeof opts.commaRoundTrip !== "boolean") {
+        throw new TypeError("`commaRoundTrip` must be a boolean, or absent");
+      }
+      var allowDots = typeof opts.allowDots === "undefined" ? opts.encodeDotInKeys === true ? true : defaults.allowDots : !!opts.allowDots;
+      return {
+        addQueryPrefix: typeof opts.addQueryPrefix === "boolean" ? opts.addQueryPrefix : defaults.addQueryPrefix,
+        allowDots,
+        allowEmptyArrays: typeof opts.allowEmptyArrays === "boolean" ? !!opts.allowEmptyArrays : defaults.allowEmptyArrays,
+        arrayFormat,
+        charset,
+        charsetSentinel: typeof opts.charsetSentinel === "boolean" ? opts.charsetSentinel : defaults.charsetSentinel,
+        commaRoundTrip: !!opts.commaRoundTrip,
+        delimiter: typeof opts.delimiter === "undefined" ? defaults.delimiter : opts.delimiter,
+        encode: typeof opts.encode === "boolean" ? opts.encode : defaults.encode,
+        encodeDotInKeys: typeof opts.encodeDotInKeys === "boolean" ? opts.encodeDotInKeys : defaults.encodeDotInKeys,
+        encoder: typeof opts.encoder === "function" ? opts.encoder : defaults.encoder,
+        encodeValuesOnly: typeof opts.encodeValuesOnly === "boolean" ? opts.encodeValuesOnly : defaults.encodeValuesOnly,
+        filter,
+        format,
+        formatter,
+        serializeDate: typeof opts.serializeDate === "function" ? opts.serializeDate : defaults.serializeDate,
+        skipNulls: typeof opts.skipNulls === "boolean" ? opts.skipNulls : defaults.skipNulls,
+        sort: typeof opts.sort === "function" ? opts.sort : null,
+        strictNullHandling: typeof opts.strictNullHandling === "boolean" ? opts.strictNullHandling : defaults.strictNullHandling
+      };
+    };
+    module2.exports = function(object, opts) {
+      var obj = object;
+      var options = normalizeStringifyOptions(opts);
+      var objKeys;
+      var filter;
+      if (typeof options.filter === "function") {
+        filter = options.filter;
+        obj = filter("", obj);
+      } else if (isArray(options.filter)) {
+        filter = options.filter;
+        objKeys = filter;
+      }
+      var keys = [];
+      if (typeof obj !== "object" || obj === null) {
+        return "";
+      }
+      var generateArrayPrefix = arrayPrefixGenerators[options.arrayFormat];
+      var commaRoundTrip = generateArrayPrefix === "comma" && options.commaRoundTrip;
+      if (!objKeys) {
+        objKeys = Object.keys(obj);
+      }
+      if (options.sort) {
+        objKeys.sort(options.sort);
+      }
+      var sideChannel = getSideChannel();
+      for (var i = 0; i < objKeys.length; ++i) {
+        var key = objKeys[i];
+        var value = obj[key];
+        if (options.skipNulls && value === null) {
+          continue;
+        }
+        pushToArray(keys, stringify(
+          value,
+          key,
+          generateArrayPrefix,
+          commaRoundTrip,
+          options.allowEmptyArrays,
+          options.strictNullHandling,
+          options.skipNulls,
+          options.encodeDotInKeys,
+          options.encode ? options.encoder : null,
+          options.filter,
+          options.sort,
+          options.allowDots,
+          options.serializeDate,
+          options.format,
+          options.formatter,
+          options.encodeValuesOnly,
+          options.charset,
+          sideChannel
+        ));
+      }
+      var joined = keys.join(options.delimiter);
+      var prefix = options.addQueryPrefix === true ? "?" : "";
+      if (options.charsetSentinel) {
+        if (options.charset === "iso-8859-1") {
+          prefix += "utf8=%26%2310003%3B&";
+        } else {
+          prefix += "utf8=%E2%9C%93&";
+        }
+      }
+      return joined.length > 0 ? prefix + joined : "";
+    };
+  }
+});
+
+// node_modules/qs/lib/parse.js
+var require_parse2 = __commonJS({
+  "node_modules/qs/lib/parse.js"(exports2, module2) {
+    "use strict";
+    var utils = require_utils3();
+    var has = Object.prototype.hasOwnProperty;
+    var isArray = Array.isArray;
+    var defaults = {
+      allowDots: false,
+      allowEmptyArrays: false,
+      allowPrototypes: false,
+      allowSparse: false,
+      arrayLimit: 20,
+      charset: "utf-8",
+      charsetSentinel: false,
+      comma: false,
+      decodeDotInKeys: false,
+      decoder: utils.decode,
+      delimiter: "&",
+      depth: 5,
+      duplicates: "combine",
+      ignoreQueryPrefix: false,
+      interpretNumericEntities: false,
+      parameterLimit: 1e3,
+      parseArrays: true,
+      plainObjects: false,
+      strictDepth: false,
+      strictNullHandling: false,
+      throwOnLimitExceeded: false
+    };
+    var interpretNumericEntities = function(str) {
+      return str.replace(/&#(\d+);/g, function($0, numberStr) {
+        return String.fromCharCode(parseInt(numberStr, 10));
+      });
+    };
+    var parseArrayValue = function(val, options, currentArrayLength) {
+      if (val && typeof val === "string" && options.comma && val.indexOf(",") > -1) {
+        return val.split(",");
+      }
+      if (options.throwOnLimitExceeded && currentArrayLength >= options.arrayLimit) {
+        throw new RangeError("Array limit exceeded. Only " + options.arrayLimit + " element" + (options.arrayLimit === 1 ? "" : "s") + " allowed in an array.");
+      }
+      return val;
+    };
+    var isoSentinel = "utf8=%26%2310003%3B";
+    var charsetSentinel = "utf8=%E2%9C%93";
+    var parseValues = function parseQueryStringValues(str, options) {
+      var obj = { __proto__: null };
+      var cleanStr = options.ignoreQueryPrefix ? str.replace(/^\?/, "") : str;
+      cleanStr = cleanStr.replace(/%5B/gi, "[").replace(/%5D/gi, "]");
+      var limit = options.parameterLimit === Infinity ? void 0 : options.parameterLimit;
+      var parts = cleanStr.split(
+        options.delimiter,
+        options.throwOnLimitExceeded ? limit + 1 : limit
+      );
+      if (options.throwOnLimitExceeded && parts.length > limit) {
+        throw new RangeError("Parameter limit exceeded. Only " + limit + " parameter" + (limit === 1 ? "" : "s") + " allowed.");
+      }
+      var skipIndex = -1;
+      var i;
+      var charset = options.charset;
+      if (options.charsetSentinel) {
+        for (i = 0; i < parts.length; ++i) {
+          if (parts[i].indexOf("utf8=") === 0) {
+            if (parts[i] === charsetSentinel) {
+              charset = "utf-8";
+            } else if (parts[i] === isoSentinel) {
+              charset = "iso-8859-1";
+            }
+            skipIndex = i;
+            i = parts.length;
+          }
+        }
+      }
+      for (i = 0; i < parts.length; ++i) {
+        if (i === skipIndex) {
+          continue;
+        }
+        var part = parts[i];
+        var bracketEqualsPos = part.indexOf("]=");
+        var pos = bracketEqualsPos === -1 ? part.indexOf("=") : bracketEqualsPos + 1;
+        var key;
+        var val;
+        if (pos === -1) {
+          key = options.decoder(part, defaults.decoder, charset, "key");
+          val = options.strictNullHandling ? null : "";
+        } else {
+          key = options.decoder(part.slice(0, pos), defaults.decoder, charset, "key");
+          if (key !== null) {
+            val = utils.maybeMap(
+              parseArrayValue(
+                part.slice(pos + 1),
+                options,
+                isArray(obj[key]) ? obj[key].length : 0
+              ),
+              function(encodedVal) {
+                return options.decoder(encodedVal, defaults.decoder, charset, "value");
+              }
+            );
+          }
+        }
+        if (val && options.interpretNumericEntities && charset === "iso-8859-1") {
+          val = interpretNumericEntities(String(val));
+        }
+        if (part.indexOf("[]=") > -1) {
+          val = isArray(val) ? [val] : val;
+        }
+        if (options.comma && isArray(val) && val.length > options.arrayLimit) {
+          if (options.throwOnLimitExceeded) {
+            throw new RangeError("Array limit exceeded. Only " + options.arrayLimit + " element" + (options.arrayLimit === 1 ? "" : "s") + " allowed in an array.");
+          }
+          val = utils.combine([], val, options.arrayLimit, options.plainObjects);
+        }
+        if (key !== null) {
+          var existing = has.call(obj, key);
+          if (existing && options.duplicates === "combine") {
+            obj[key] = utils.combine(
+              obj[key],
+              val,
+              options.arrayLimit,
+              options.plainObjects
+            );
+          } else if (!existing || options.duplicates === "last") {
+            obj[key] = val;
+          }
+        }
+      }
+      return obj;
+    };
+    var parseObject = function(chain, val, options, valuesParsed) {
+      var currentArrayLength = 0;
+      if (chain.length > 0 && chain[chain.length - 1] === "[]") {
+        var parentKey = chain.slice(0, -1).join("");
+        currentArrayLength = Array.isArray(val) && val[parentKey] ? val[parentKey].length : 0;
+      }
+      var leaf = valuesParsed ? val : parseArrayValue(val, options, currentArrayLength);
+      for (var i = chain.length - 1; i >= 0; --i) {
+        var obj;
+        var root = chain[i];
+        if (root === "[]" && options.parseArrays) {
+          if (utils.isOverflow(leaf)) {
+            obj = leaf;
+          } else {
+            obj = options.allowEmptyArrays && (leaf === "" || options.strictNullHandling && leaf === null) ? [] : utils.combine(
+              [],
+              leaf,
+              options.arrayLimit,
+              options.plainObjects
+            );
+          }
+        } else {
+          obj = options.plainObjects ? { __proto__: null } : {};
+          var cleanRoot = root.charAt(0) === "[" && root.charAt(root.length - 1) === "]" ? root.slice(1, -1) : root;
+          var decodedRoot = options.decodeDotInKeys ? cleanRoot.replace(/%2E/g, ".") : cleanRoot;
+          var index = parseInt(decodedRoot, 10);
+          var isValidArrayIndex = !isNaN(index) && root !== decodedRoot && String(index) === decodedRoot && index >= 0 && options.parseArrays;
+          if (!options.parseArrays && decodedRoot === "") {
+            obj = { 0: leaf };
+          } else if (isValidArrayIndex && index < options.arrayLimit) {
+            obj = [];
+            obj[index] = leaf;
+          } else if (isValidArrayIndex && options.throwOnLimitExceeded) {
+            throw new RangeError("Array limit exceeded. Only " + options.arrayLimit + " element" + (options.arrayLimit === 1 ? "" : "s") + " allowed in an array.");
+          } else if (isValidArrayIndex) {
+            obj[index] = leaf;
+            utils.markOverflow(obj, index);
+          } else if (decodedRoot !== "__proto__") {
+            obj[decodedRoot] = leaf;
+          }
+        }
+        leaf = obj;
+      }
+      return leaf;
+    };
+    var splitKeyIntoSegments = function splitKeyIntoSegments2(givenKey, options) {
+      var key = options.allowDots ? givenKey.replace(/\.([^.[]+)/g, "[$1]") : givenKey;
+      if (options.depth <= 0) {
+        if (!options.plainObjects && has.call(Object.prototype, key)) {
+          if (!options.allowPrototypes) {
+            return;
+          }
+        }
+        return [key];
+      }
+      var brackets = /(\[[^[\]]*])/;
+      var child = /(\[[^[\]]*])/g;
+      var segment = brackets.exec(key);
+      var parent = segment ? key.slice(0, segment.index) : key;
+      var keys = [];
+      if (parent) {
+        if (!options.plainObjects && has.call(Object.prototype, parent)) {
+          if (!options.allowPrototypes) {
+            return;
+          }
+        }
+        keys[keys.length] = parent;
+      }
+      var i = 0;
+      while ((segment = child.exec(key)) !== null && i < options.depth) {
+        i += 1;
+        var segmentContent = segment[1].slice(1, -1);
+        if (!options.plainObjects && has.call(Object.prototype, segmentContent)) {
+          if (!options.allowPrototypes) {
+            return;
+          }
+        }
+        keys[keys.length] = segment[1];
+      }
+      if (segment) {
+        if (options.strictDepth === true) {
+          throw new RangeError("Input depth exceeded depth option of " + options.depth + " and strictDepth is true");
+        }
+        keys[keys.length] = "[" + key.slice(segment.index) + "]";
+      }
+      return keys;
+    };
+    var parseKeys = function parseQueryStringKeys(givenKey, val, options, valuesParsed) {
+      if (!givenKey) {
+        return;
+      }
+      var keys = splitKeyIntoSegments(givenKey, options);
+      if (!keys) {
+        return;
+      }
+      return parseObject(keys, val, options, valuesParsed);
+    };
+    var normalizeParseOptions = function normalizeParseOptions2(opts) {
+      if (!opts) {
+        return defaults;
+      }
+      if (typeof opts.allowEmptyArrays !== "undefined" && typeof opts.allowEmptyArrays !== "boolean") {
+        throw new TypeError("`allowEmptyArrays` option can only be `true` or `false`, when provided");
+      }
+      if (typeof opts.decodeDotInKeys !== "undefined" && typeof opts.decodeDotInKeys !== "boolean") {
+        throw new TypeError("`decodeDotInKeys` option can only be `true` or `false`, when provided");
+      }
+      if (opts.decoder !== null && typeof opts.decoder !== "undefined" && typeof opts.decoder !== "function") {
+        throw new TypeError("Decoder has to be a function.");
+      }
+      if (typeof opts.charset !== "undefined" && opts.charset !== "utf-8" && opts.charset !== "iso-8859-1") {
+        throw new TypeError("The charset option must be either utf-8, iso-8859-1, or undefined");
+      }
+      if (typeof opts.throwOnLimitExceeded !== "undefined" && typeof opts.throwOnLimitExceeded !== "boolean") {
+        throw new TypeError("`throwOnLimitExceeded` option must be a boolean");
+      }
+      var charset = typeof opts.charset === "undefined" ? defaults.charset : opts.charset;
+      var duplicates = typeof opts.duplicates === "undefined" ? defaults.duplicates : opts.duplicates;
+      if (duplicates !== "combine" && duplicates !== "first" && duplicates !== "last") {
+        throw new TypeError("The duplicates option must be either combine, first, or last");
+      }
+      var allowDots = typeof opts.allowDots === "undefined" ? opts.decodeDotInKeys === true ? true : defaults.allowDots : !!opts.allowDots;
+      return {
+        allowDots,
+        allowEmptyArrays: typeof opts.allowEmptyArrays === "boolean" ? !!opts.allowEmptyArrays : defaults.allowEmptyArrays,
+        allowPrototypes: typeof opts.allowPrototypes === "boolean" ? opts.allowPrototypes : defaults.allowPrototypes,
+        allowSparse: typeof opts.allowSparse === "boolean" ? opts.allowSparse : defaults.allowSparse,
+        arrayLimit: typeof opts.arrayLimit === "number" ? opts.arrayLimit : defaults.arrayLimit,
+        charset,
+        charsetSentinel: typeof opts.charsetSentinel === "boolean" ? opts.charsetSentinel : defaults.charsetSentinel,
+        comma: typeof opts.comma === "boolean" ? opts.comma : defaults.comma,
+        decodeDotInKeys: typeof opts.decodeDotInKeys === "boolean" ? opts.decodeDotInKeys : defaults.decodeDotInKeys,
+        decoder: typeof opts.decoder === "function" ? opts.decoder : defaults.decoder,
+        delimiter: typeof opts.delimiter === "string" || utils.isRegExp(opts.delimiter) ? opts.delimiter : defaults.delimiter,
+        // eslint-disable-next-line no-implicit-coercion, no-extra-parens
+        depth: typeof opts.depth === "number" || opts.depth === false ? +opts.depth : defaults.depth,
+        duplicates,
+        ignoreQueryPrefix: opts.ignoreQueryPrefix === true,
+        interpretNumericEntities: typeof opts.interpretNumericEntities === "boolean" ? opts.interpretNumericEntities : defaults.interpretNumericEntities,
+        parameterLimit: typeof opts.parameterLimit === "number" ? opts.parameterLimit : defaults.parameterLimit,
+        parseArrays: opts.parseArrays !== false,
+        plainObjects: typeof opts.plainObjects === "boolean" ? opts.plainObjects : defaults.plainObjects,
+        strictDepth: typeof opts.strictDepth === "boolean" ? !!opts.strictDepth : defaults.strictDepth,
+        strictNullHandling: typeof opts.strictNullHandling === "boolean" ? opts.strictNullHandling : defaults.strictNullHandling,
+        throwOnLimitExceeded: typeof opts.throwOnLimitExceeded === "boolean" ? opts.throwOnLimitExceeded : false
+      };
+    };
+    module2.exports = function(str, opts) {
+      var options = normalizeParseOptions(opts);
+      if (str === "" || str === null || typeof str === "undefined") {
+        return options.plainObjects ? { __proto__: null } : {};
+      }
+      var tempObj = typeof str === "string" ? parseValues(str, options) : str;
+      var obj = options.plainObjects ? { __proto__: null } : {};
+      var keys = Object.keys(tempObj);
+      for (var i = 0; i < keys.length; ++i) {
+        var key = keys[i];
+        var newObj = parseKeys(key, tempObj[key], options, typeof str === "string");
+        obj = utils.merge(obj, newObj, options);
+      }
+      if (options.allowSparse === true) {
+        return obj;
+      }
+      return utils.compact(obj);
+    };
+  }
+});
+
+// node_modules/qs/lib/index.js
+var require_lib3 = __commonJS({
+  "node_modules/qs/lib/index.js"(exports2, module2) {
+    "use strict";
+    var stringify = require_stringify2();
+    var parse = require_parse2();
+    var formats = require_formats2();
+    module2.exports = {
+      formats,
+      parse,
+      stringify
+    };
+  }
+});
+
 // node_modules/express/lib/middleware/query.js
 var require_query = __commonJS({
   "node_modules/express/lib/middleware/query.js"(exports2, module2) {
     "use strict";
     var merge = require_utils_merge();
     var parseUrl = require_parseurl();
-    var qs = require_lib2();
+    var qs = require_lib3();
     module2.exports = function query(options) {
       var opts = merge({}, options);
       var queryparse = qs.parse;
@@ -21910,7 +22899,7 @@ var require_proxy_addr = __commonJS({
 });
 
 // node_modules/express/lib/utils.js
-var require_utils3 = __commonJS({
+var require_utils4 = __commonJS({
   "node_modules/express/lib/utils.js"(exports2) {
     "use strict";
     var Buffer2 = require_safe_buffer().Buffer;
@@ -21921,7 +22910,7 @@ var require_utils3 = __commonJS({
     var mime = require_send().mime;
     var etag = require_etag();
     var proxyaddr = require_proxy_addr();
-    var qs = require_lib2();
+    var qs = require_lib3();
     var querystring = require("querystring");
     exports2.etag = createETagGenerator({ weak: false });
     exports2.wetag = createETagGenerator({ weak: true });
@@ -22058,9 +23047,9 @@ var require_application = __commonJS({
     var debug = require_src3()("express:application");
     var View = require_view();
     var http = require("http");
-    var compileETag = require_utils3().compileETag;
-    var compileQueryParser = require_utils3().compileQueryParser;
-    var compileTrust = require_utils3().compileTrust;
+    var compileETag = require_utils4().compileETag;
+    var compileQueryParser = require_utils4().compileQueryParser;
+    var compileTrust = require_utils4().compileTrust;
     var deprecate = require_depd()("express");
     var flatten = require_array_flatten();
     var merge = require_utils_merge();
@@ -23335,15 +24324,15 @@ var require_response2 = __commonJS({
     var encodeUrl = require_encodeurl();
     var escapeHtml = require_escape_html();
     var http = require("http");
-    var isAbsolute = require_utils3().isAbsolute;
+    var isAbsolute = require_utils4().isAbsolute;
     var onFinished = require_on_finished();
     var path = require("path");
     var statuses = require_statuses();
     var merge = require_utils_merge();
     var sign = require_cookie_signature().sign;
-    var normalizeType = require_utils3().normalizeType;
-    var normalizeTypes = require_utils3().normalizeTypes;
-    var setCharset = require_utils3().setCharset;
+    var normalizeType = require_utils4().normalizeType;
+    var normalizeTypes = require_utils4().normalizeTypes;
+    var setCharset = require_utils4().setCharset;
     var cookie = require_cookie();
     var send = require_send();
     var extname = path.extname;
@@ -24119,7 +25108,7 @@ var require_object_assign = __commonJS({
 });
 
 // node_modules/cors/lib/index.js
-var require_lib3 = __commonJS({
+var require_lib4 = __commonJS({
   "node_modules/cors/lib/index.js"(exports2, module2) {
     (function() {
       "use strict";
@@ -25433,6 +26422,18 @@ var require_semver = __commonJS({
     var { safeRe: re, t } = require_re();
     var parseOptions = require_parse_options();
     var { compareIdentifiers } = require_identifiers();
+    var isPrereleaseIdentifier = (prerelease, identifier) => {
+      const identifiers = identifier.split(".");
+      if (identifiers.length > prerelease.length) {
+        return false;
+      }
+      for (let i = 0; i < identifiers.length; i++) {
+        if (compareIdentifiers(prerelease[i], identifiers[i]) !== 0) {
+          return false;
+        }
+      }
+      return true;
+    };
     var SemVer = class _SemVer {
       constructor(version, options) {
         options = parseOptions(options);
@@ -25679,8 +26680,9 @@ var require_semver = __commonJS({
               if (identifierBase === false) {
                 prerelease = [identifier];
               }
-              if (compareIdentifiers(this.prerelease[0], identifier) === 0) {
-                if (isNaN(this.prerelease[1])) {
+              if (isPrereleaseIdentifier(this.prerelease, identifier)) {
+                const prereleaseBase = this.prerelease[identifier.split(".").length];
+                if (isNaN(prereleaseBase)) {
                   this.prerelease = prerelease;
                 }
               } else {
@@ -25704,7 +26706,7 @@ var require_semver = __commonJS({
 });
 
 // node_modules/semver/functions/parse.js
-var require_parse2 = __commonJS({
+var require_parse3 = __commonJS({
   "node_modules/semver/functions/parse.js"(exports2, module2) {
     "use strict";
     var SemVer = require_semver();
@@ -25729,7 +26731,7 @@ var require_parse2 = __commonJS({
 var require_valid = __commonJS({
   "node_modules/semver/functions/valid.js"(exports2, module2) {
     "use strict";
-    var parse = require_parse2();
+    var parse = require_parse3();
     var valid = (version, options) => {
       const v = parse(version, options);
       return v ? v.version : null;
@@ -25742,7 +26744,7 @@ var require_valid = __commonJS({
 var require_clean = __commonJS({
   "node_modules/semver/functions/clean.js"(exports2, module2) {
     "use strict";
-    var parse = require_parse2();
+    var parse = require_parse3();
     var clean = (version, options) => {
       const s = parse(version.trim().replace(/^[=v]+/, ""), options);
       return s ? s.version : null;
@@ -25779,7 +26781,7 @@ var require_inc = __commonJS({
 var require_diff = __commonJS({
   "node_modules/semver/functions/diff.js"(exports2, module2) {
     "use strict";
-    var parse = require_parse2();
+    var parse = require_parse3();
     var diff = (version1, version2) => {
       const v1 = parse(version1, null, true);
       const v2 = parse(version2, null, true);
@@ -25853,7 +26855,7 @@ var require_patch = __commonJS({
 var require_prerelease = __commonJS({
   "node_modules/semver/functions/prerelease.js"(exports2, module2) {
     "use strict";
-    var parse = require_parse2();
+    var parse = require_parse3();
     var prerelease = (version, options) => {
       const parsed = parse(version, options);
       return parsed && parsed.prerelease.length ? parsed.prerelease : null;
@@ -26041,7 +27043,7 @@ var require_coerce = __commonJS({
   "node_modules/semver/functions/coerce.js"(exports2, module2) {
     "use strict";
     var SemVer = require_semver();
-    var parse = require_parse2();
+    var parse = require_parse3();
     var { safeRe: re, t } = require_re();
     var coerce = (version, options) => {
       if (version instanceof SemVer) {
@@ -26079,6 +27081,47 @@ var require_coerce = __commonJS({
       return parse(`${major}.${minor}.${patch}${prerelease}${build}`, options);
     };
     module2.exports = coerce;
+  }
+});
+
+// node_modules/semver/functions/truncate.js
+var require_truncate = __commonJS({
+  "node_modules/semver/functions/truncate.js"(exports2, module2) {
+    "use strict";
+    var parse = require_parse3();
+    var constants = require_constants2();
+    var SemVer = require_semver();
+    var truncate = (version, truncation, options) => {
+      if (!constants.RELEASE_TYPES.includes(truncation)) {
+        return null;
+      }
+      const clonedVersion = cloneInputVersion(version, options);
+      return clonedVersion && doTruncation(clonedVersion, truncation);
+    };
+    var cloneInputVersion = (version, options) => {
+      const versionStringToParse = version instanceof SemVer ? version.version : version;
+      return parse(versionStringToParse, options);
+    };
+    var doTruncation = (version, truncation) => {
+      if (isPrerelease(truncation)) {
+        return version.version;
+      }
+      version.prerelease = [];
+      switch (truncation) {
+        case "major":
+          version.minor = 0;
+          version.patch = 0;
+          break;
+        case "minor":
+          version.patch = 0;
+          break;
+      }
+      return version.format();
+    };
+    var isPrerelease = (type) => {
+      return type.startsWith("pre");
+    };
+    module2.exports = truncate;
   }
 });
 
@@ -26190,6 +27233,7 @@ var require_range2 = __commonJS({
         return this.range;
       }
       parseRange(range) {
+        range = range.replace(BUILDSTRIPRE, "");
         const memoOpts = (this.options.includePrerelease && FLAG_INCLUDE_PRERELEASE) | (this.options.loose && FLAG_LOOSE);
         const memoKey = memoOpts + ":" + range;
         const cached = cache.get(memoKey);
@@ -26272,12 +27316,14 @@ var require_range2 = __commonJS({
     var SemVer = require_semver();
     var {
       safeRe: re,
+      src,
       t,
       comparatorTrimReplace,
       tildeTrimReplace,
       caretTrimReplace
     } = require_re();
     var { FLAG_INCLUDE_PRERELEASE, FLAG_LOOSE } = require_constants2();
+    var BUILDSTRIPRE = new RegExp(src[t.BUILD], "g");
     var isNullSet = (c) => c.value === "<0.0.0-0";
     var isAny = (c) => c.value === "";
     var isSatisfiable = (comparators, options) => {
@@ -26306,20 +27352,22 @@ var require_range2 = __commonJS({
       return comp;
     };
     var isX = (id) => !id || id.toLowerCase() === "x" || id === "*";
+    var invalidXRangeOrder = (M, m, p) => isX(M) && !isX(m) || isX(m) && p && !isX(p);
     var replaceTildes = (comp, options) => {
       return comp.trim().split(/\s+/).map((c) => replaceTilde(c, options)).join(" ");
     };
     var replaceTilde = (comp, options) => {
       const r = options.loose ? re[t.TILDELOOSE] : re[t.TILDE];
+      const z = options.includePrerelease ? "-0" : "";
       return comp.replace(r, (_, M, m, p, pr) => {
         debug("tilde", comp, _, M, m, p, pr);
         let ret;
         if (isX(M)) {
           ret = "";
         } else if (isX(m)) {
-          ret = `>=${M}.0.0 <${+M + 1}.0.0-0`;
+          ret = `>=${M}.0.0${z} <${+M + 1}.0.0-0`;
         } else if (isX(p)) {
-          ret = `>=${M}.${m}.0 <${M}.${+m + 1}.0-0`;
+          ret = `>=${M}.${m}.0${z} <${M}.${+m + 1}.0-0`;
         } else if (pr) {
           debug("replaceTilde pr", pr);
           ret = `>=${M}.${m}.${p}-${pr} <${M}.${+m + 1}.0-0`;
@@ -26365,9 +27413,9 @@ var require_range2 = __commonJS({
           debug("no pr");
           if (M === "0") {
             if (m === "0") {
-              ret = `>=${M}.${m}.${p}${z} <${M}.${m}.${+p + 1}-0`;
+              ret = `>=${M}.${m}.${p} <${M}.${m}.${+p + 1}-0`;
             } else {
-              ret = `>=${M}.${m}.${p}${z} <${M}.${+m + 1}.0-0`;
+              ret = `>=${M}.${m}.${p} <${M}.${+m + 1}.0-0`;
             }
           } else {
             ret = `>=${M}.${m}.${p} <${+M + 1}.0.0-0`;
@@ -26386,6 +27434,9 @@ var require_range2 = __commonJS({
       const r = options.loose ? re[t.XRANGELOOSE] : re[t.XRANGE];
       return comp.replace(r, (ret, gtlt, M, m, p, pr) => {
         debug("xRange", comp, ret, gtlt, M, m, p, pr);
+        if (invalidXRangeOrder(M, m, p)) {
+          return comp;
+        }
         const xM = isX(M);
         const xm = xM || isX(m);
         const xp = xm || isX(p);
@@ -27033,7 +28084,7 @@ var require_subset = __commonJS({
             if (higher === c && higher !== gt) {
               return false;
             }
-          } else if (gt.operator === ">=" && !satisfies(gt.semver, String(c), options)) {
+          } else if (gt.operator === ">=" && !c.test(gt.semver)) {
             return false;
           }
         }
@@ -27048,7 +28099,7 @@ var require_subset = __commonJS({
             if (lower === c && lower !== lt) {
               return false;
             }
-          } else if (lt.operator === "<=" && !satisfies(lt.semver, String(c), options)) {
+          } else if (lt.operator === "<=" && !c.test(lt.semver)) {
             return false;
           }
         }
@@ -27093,7 +28144,7 @@ var require_semver2 = __commonJS({
     var constants = require_constants2();
     var SemVer = require_semver();
     var identifiers = require_identifiers();
-    var parse = require_parse2();
+    var parse = require_parse3();
     var valid = require_valid();
     var clean = require_clean();
     var inc = require_inc();
@@ -27116,6 +28167,7 @@ var require_semver2 = __commonJS({
     var lte = require_lte();
     var cmp = require_cmp();
     var coerce = require_coerce();
+    var truncate = require_truncate();
     var Comparator = require_comparator();
     var Range = require_range2();
     var satisfies = require_satisfies();
@@ -27154,6 +28206,7 @@ var require_semver2 = __commonJS({
       lte,
       cmp,
       coerce,
+      truncate,
       Comparator,
       Range,
       satisfies,
@@ -35882,7 +36935,7 @@ var require_write_concern = __commonJS({
 });
 
 // node_modules/mongodb/lib/utils.js
-var require_utils4 = __commonJS({
+var require_utils5 = __commonJS({
   "node_modules/mongodb/lib/utils.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -36993,7 +38046,7 @@ var require_responses = __commonJS({
     exports2.isErrorResponse = isErrorResponse;
     var bson_1 = require_bson2();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var document_1 = require_document();
     var BSONElementOffset = {
       type: 0,
@@ -37424,7 +38477,7 @@ var require_command = __commonJS({
     var error_1 = require_error();
     var explain_1 = require_explain();
     var read_concern_1 = require_read_concern();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var write_concern_1 = require_write_concern();
     var operation_1 = require_operation();
     var CommandOperation = class extends operation_1.AbstractOperation {
@@ -37499,7 +38552,7 @@ var require_delete = __commonJS({
     exports2.makeDeleteStatement = makeDeleteStatement;
     var responses_1 = require_responses();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_1 = require_command();
     var operation_1 = require_operation();
     var DeleteOperation = class extends command_1.CommandOperation {
@@ -37794,7 +38847,7 @@ var require_timeout = __commonJS({
     exports2.LegacyTimeoutContext = exports2.CSOTTimeoutContext = exports2.TimeoutContext = exports2.Timeout = exports2.TimeoutError = void 0;
     var timers_1 = require("timers");
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var TimeoutError = class extends Error {
       get name() {
         return "TimeoutError";
@@ -38156,7 +39209,7 @@ var require_execute_operation = __commonJS({
     var read_preference_1 = require_read_preference();
     var server_selection_1 = require_server_selection();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var aggregate_1 = require_aggregate();
     var operation_1 = require_operation();
     var MMAPv1_RETRY_WRITES_ERROR_CODE = error_1.MONGODB_ERROR_CODES.IllegalOperation;
@@ -38318,7 +39371,7 @@ var require_insert = __commonJS({
     exports2.InsertOneOperation = exports2.InsertOperation = void 0;
     var responses_1 = require_responses();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_1 = require_command();
     var operation_1 = require_operation();
     var InsertOperation = class extends command_1.CommandOperation {
@@ -38489,7 +39542,7 @@ var require_update = __commonJS({
     var responses_1 = require_responses();
     var error_1 = require_error();
     var sort_1 = require_sort2();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_1 = require_command();
     var operation_1 = require_operation();
     var UpdateOperation = class extends command_1.CommandOperation {
@@ -38674,7 +39727,7 @@ var require_common2 = __commonJS({
     var insert_1 = require_insert();
     var update_1 = require_update();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var write_concern_1 = require_write_concern();
     exports2.BatchType = Object.freeze({
       INSERT: 1,
@@ -39610,7 +40663,7 @@ var require_list_databases = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.ListDatabasesOperation = void 0;
     var responses_1 = require_responses();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_1 = require_command();
     var operation_1 = require_operation();
     var ListDatabasesOperation = class extends command_1.CommandOperation {
@@ -39774,7 +40827,7 @@ var require_admin = __commonJS({
     var remove_user_1 = require_remove_user();
     var run_command_1 = require_run_command();
     var validate_collection_1 = require_validate_collection();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var Admin = class {
       /**
        * Create a new Admin instance
@@ -40035,7 +41088,7 @@ var require_mongo_logger = __commonJS({
     var util_1 = require("util");
     var bson_1 = require_bson2();
     var constants_1 = require_constants4();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     exports2.SeverityLevel = Object.freeze({
       EMERGENCY: "emergency",
       ALERT: "alert",
@@ -40589,7 +41642,7 @@ var require_mongo_types = __commonJS({
     exports2.CancellationToken = exports2.TypedEventEmitter = void 0;
     var events_1 = require("events");
     var mongo_logger_1 = require_mongo_logger();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var TypedEventEmitter = class extends events_1.EventEmitter {
       /** @internal */
       emitAndLog(event, ...args) {
@@ -40642,7 +41695,7 @@ var require_get_more = __commonJS({
     exports2.GetMoreOperation = void 0;
     var responses_1 = require_responses();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var operation_1 = require_operation();
     var GetMoreOperation = class extends operation_1.AbstractOperation {
       constructor(ns, cursorId, server, options) {
@@ -40901,7 +41954,7 @@ var require_gssapi = __commonJS({
     var dns = require("dns");
     var deps_1 = require_deps();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var auth_provider_1 = require_auth_provider();
     exports2.GSSAPICanonicalizationValue = Object.freeze({
       on: true,
@@ -41404,7 +42457,7 @@ var require_client_metadata = __commonJS({
     var process2 = require("process");
     var bson_1 = require_bson2();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var NODE_DRIVER_VERSION = require_package().version;
     function isDriverInfoEqual(info1, info2) {
       const nonEmptyCmp = (s1, s2) => {
@@ -41585,7 +42638,7 @@ var require_client_metadata = __commonJS({
 });
 
 // node_modules/webidl-conversions/lib/index.js
-var require_lib4 = __commonJS({
+var require_lib5 = __commonJS({
   "node_modules/webidl-conversions/lib/index.js"(exports2) {
     "use strict";
     function makeException(ErrorType, message, options) {
@@ -41931,7 +42984,7 @@ var require_lib4 = __commonJS({
 });
 
 // node_modules/whatwg-url/lib/utils.js
-var require_utils5 = __commonJS({
+var require_utils6 = __commonJS({
   "node_modules/whatwg-url/lib/utils.js"(exports2, module2) {
     "use strict";
     function isObject(value) {
@@ -43951,8 +45004,8 @@ var require_urlencoded2 = __commonJS({
 var require_Function = __commonJS({
   "node_modules/whatwg-url/lib/Function.js"(exports2) {
     "use strict";
-    var conversions = require_lib4();
-    var utils = require_utils5();
+    var conversions = require_lib5();
+    var utils = require_utils6();
     exports2.convert = (globalObject, value, { context = "The provided value" } = {}) => {
       if (typeof value !== "function") {
         throw new globalObject.TypeError(context + " is not a function");
@@ -44110,8 +45163,8 @@ var require_URLSearchParams_impl = __commonJS({
 var require_URLSearchParams = __commonJS({
   "node_modules/whatwg-url/lib/URLSearchParams.js"(exports2) {
     "use strict";
-    var conversions = require_lib4();
-    var utils = require_utils5();
+    var conversions = require_lib5();
+    var utils = require_utils6();
     var Function2 = require_Function();
     var newObjectInRealm = utils.newObjectInRealm;
     var implSymbol = utils.implSymbol;
@@ -44748,8 +45801,8 @@ var require_URL_impl = __commonJS({
 var require_URL = __commonJS({
   "node_modules/whatwg-url/lib/URL.js"(exports2) {
     "use strict";
-    var conversions = require_lib4();
-    var utils = require_utils5();
+    var conversions = require_lib5();
+    var utils = require_utils6();
     var implSymbol = utils.implSymbol;
     var ctorRegistrySymbol = utils.ctorRegistrySymbol;
     var interfaceName = "URL";
@@ -45218,7 +46271,7 @@ var require_redact = __commonJS({
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.redactConnectionString = exports2.redactValidConnectionString = void 0;
-    var index_1 = __importStar(require_lib5());
+    var index_1 = __importStar(require_lib6());
     function redactValidConnectionString(inputUrl, options) {
       var _a, _b;
       const url = inputUrl.clone();
@@ -45280,7 +46333,7 @@ var require_redact = __commonJS({
 });
 
 // node_modules/mongodb-connection-string-url/lib/index.js
-var require_lib5 = __commonJS({
+var require_lib6 = __commonJS({
   "node_modules/mongodb-connection-string-url/lib/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -46307,7 +47360,7 @@ var require_aws_temporary_credentials = __commonJS({
     exports2.LegacyAWSTemporaryCredentialProvider = exports2.AWSSDKCredentialProvider = exports2.AWSTemporaryCredentialProvider = void 0;
     var deps_1 = require_deps();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var AWS_RELATIVE_URI = "http://169.254.170.2";
     var AWS_EC2_URI = "http://169.254.169.254";
     var AWS_EC2_PATH = "/latest/meta-data/iam/security-credentials";
@@ -46441,7 +47494,7 @@ var require_azure = __commonJS({
     exports2.fetchAzureKMSToken = fetchAzureKMSToken;
     exports2.loadAzureCredentials = loadAzureCredentials;
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var errors_1 = require_errors();
     var MINIMUM_TOKEN_REFRESH_IN_MILLISECONDS = 6e3;
     exports2.AZURE_BASE_URL = "http://169.254.169.254/metadata/identity/oauth2/token?";
@@ -46601,7 +47654,7 @@ var require_state_machine = __commonJS({
     var deps_1 = require_deps();
     var error_1 = require_error();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var client_encryption_1 = require_client_encryption();
     var errors_1 = require_errors();
     var socks = null;
@@ -46977,7 +48030,7 @@ var require_client_encryption = __commonJS({
     var bson_1 = require_bson2();
     var deps_1 = require_deps();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var cryptoCallbacks = require_crypto_callbacks();
     var errors_1 = require_errors();
     var index_1 = require_providers2();
@@ -47607,7 +48660,7 @@ var require_auto_encrypter = __commonJS({
     var deps_1 = require_deps();
     var error_1 = require_error();
     var mongo_client_1 = require_mongo_client();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var client_encryption_1 = require_client_encryption();
     var cryptoCallbacks = require_crypto_callbacks();
     var errors_1 = require_errors();
@@ -48165,7 +49218,7 @@ var require_sessions = __commonJS({
     var common_1 = require_common();
     var timeout_1 = require_timeout();
     var transactions_1 = require_transactions();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var write_concern_1 = require_write_concern();
     var ClientSession = class _ClientSession extends mongo_types_1.TypedEventEmitter {
       /**
@@ -48840,7 +49893,7 @@ var require_command_monitoring_events = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.SENSITIVE_COMMANDS = exports2.CommandFailedEvent = exports2.CommandSucceededEvent = exports2.CommandStartedEvent = void 0;
     var constants_1 = require_constants4();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var commands_1 = require_commands();
     var CommandStartedEvent = class {
       /**
@@ -49038,7 +50091,7 @@ var require_server_description = __commonJS({
     exports2.compareTopologyVersion = compareTopologyVersion;
     var bson_1 = require_bson2();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var common_1 = require_common();
     var WRITABLE_SERVER_TYPES = /* @__PURE__ */ new Set([
       common_1.ServerType.RSPrimary,
@@ -49249,7 +50302,7 @@ var require_on_data = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.onData = onData;
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     function onData(emitter, { timeoutContext, signal }) {
       signal?.throwIfAborted();
       const unconsumedEvents = new utils_1.List();
@@ -49337,7 +50390,7 @@ var require_topology_description = __commonJS({
     var bson_1 = require_bson2();
     var WIRE_CONSTANTS = require_constants3();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var common_1 = require_common();
     var server_description_1 = require_server_description();
     var MIN_SUPPORTED_SERVER_VERSION = WIRE_CONSTANTS.MIN_SUPPORTED_SERVER_VERSION;
@@ -49709,7 +50762,7 @@ var require_connection = __commonJS({
     var common_1 = require_common();
     var sessions_1 = require_sessions();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_monitoring_events_1 = require_command_monitoring_events();
     var commands_1 = require_commands();
     var stream_description_1 = require_stream_description();
@@ -50186,7 +51239,7 @@ var require_connect = __commonJS({
     var constants_1 = require_constants4();
     var deps_1 = require_deps();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var auth_provider_1 = require_auth_provider();
     var providers_1 = require_providers();
     var connection_1 = require_connection();
@@ -50601,7 +51654,7 @@ var require_connection_pool_events = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.ConnectionPoolClearedEvent = exports2.ConnectionCheckedInEvent = exports2.ConnectionCheckedOutEvent = exports2.ConnectionCheckOutFailedEvent = exports2.ConnectionCheckOutStartedEvent = exports2.ConnectionClosedEvent = exports2.ConnectionReadyEvent = exports2.ConnectionCreatedEvent = exports2.ConnectionPoolClosedEvent = exports2.ConnectionPoolReadyEvent = exports2.ConnectionPoolCreatedEvent = exports2.ConnectionPoolMonitoringEvent = void 0;
     var constants_1 = require_constants4();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var ConnectionPoolMonitoringEvent = class {
       /** @internal */
       constructor(pool) {
@@ -50824,7 +51877,7 @@ var require_connection_pool = __commonJS({
     var error_1 = require_error();
     var mongo_types_1 = require_mongo_types();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var connect_1 = require_connect();
     var connection_1 = require_connection();
     var connection_pool_events_1 = require_connection_pool_events();
@@ -51318,7 +52371,7 @@ var require_server = __commonJS({
     var mongo_types_1 = require_mongo_types();
     var aggregate_1 = require_aggregate();
     var transactions_1 = require_transactions();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var write_concern_1 = require_write_concern();
     var common_1 = require_common();
     var monitor_1 = require_monitor();
@@ -51665,7 +52718,7 @@ var require_monitor = __commonJS({
     var error_1 = require_error();
     var mongo_logger_1 = require_mongo_logger();
     var mongo_types_1 = require_mongo_types();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var common_1 = require_common();
     var events_1 = require_events();
     var server_1 = require_server();
@@ -52155,7 +53208,7 @@ var require_connection_string = __commonJS({
     exports2.resolveSRVRecord = resolveSRVRecord;
     exports2.parseOptions = parseOptions;
     var dns = require("dns");
-    var mongodb_connection_string_url_1 = require_lib5();
+    var mongodb_connection_string_url_1 = require_lib6();
     var url_1 = require("url");
     var mongo_credentials_1 = require_mongo_credentials();
     var providers_1 = require_providers();
@@ -52167,7 +53220,7 @@ var require_connection_string = __commonJS({
     var read_concern_1 = require_read_concern();
     var read_preference_1 = require_read_preference();
     var monitor_1 = require_monitor();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var write_concern_1 = require_write_concern();
     var VALID_TXT_RECORDS = ["authSource", "replicaSet", "loadBalanced"];
     var LB_SINGLE_HOST_ERROR = "loadBalanced option only supported with a single host in the URI";
@@ -53161,7 +54214,7 @@ var require_list_collections = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.ListCollectionsOperation = void 0;
     var responses_1 = require_responses();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_1 = require_command();
     var operation_1 = require_operation();
     var ListCollectionsOperation = class extends command_1.CommandOperation {
@@ -53257,7 +54310,7 @@ var require_run_command_cursor = __commonJS({
     var execute_operation_1 = require_execute_operation();
     var get_more_1 = require_get_more();
     var run_command_1 = require_run_command();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var abstract_cursor_1 = require_abstract_cursor();
     var RunCommandCursor = class extends abstract_cursor_1.AbstractCursor {
       /**
@@ -53352,7 +54405,7 @@ var require_indexes = __commonJS({
     exports2.ListIndexesOperation = exports2.DropIndexOperation = exports2.CreateIndexesOperation = void 0;
     var responses_1 = require_responses();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_1 = require_command();
     var operation_1 = require_operation();
     var VALID_INDEX_OPTIONS = /* @__PURE__ */ new Set([
@@ -53529,7 +54582,7 @@ var require_create_collection = __commonJS({
     var collection_1 = require_collection2();
     var error_1 = require_error();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_1 = require_command();
     var execute_operation_1 = require_execute_operation();
     var indexes_1 = require_indexes();
@@ -53633,7 +54686,7 @@ var require_drop = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.DropDatabaseOperation = exports2.DropCollectionOperation = void 0;
     exports2.dropCollections = dropCollections;
-    var __1 = require_lib6();
+    var __1 = require_lib7();
     var responses_1 = require_responses();
     var abstract_cursor_1 = require_abstract_cursor();
     var error_1 = require_error();
@@ -53768,7 +54821,7 @@ var require_rename = __commonJS({
     exports2.RenameOperation = void 0;
     var responses_1 = require_responses();
     var collection_1 = require_collection2();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_1 = require_command();
     var operation_1 = require_operation();
     var RenameOperation = class extends command_1.CommandOperation {
@@ -53810,7 +54863,7 @@ var require_set_profiling_level = __commonJS({
     exports2.SetProfilingLevelOperation = exports2.ProfilingLevel = void 0;
     var responses_1 = require_responses();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_1 = require_command();
     var levelValues = /* @__PURE__ */ new Set(["off", "slow_only", "all"]);
     exports2.ProfilingLevel = Object.freeze({
@@ -53915,7 +54968,7 @@ var require_db2 = __commonJS({
     var stats_1 = require_stats();
     var read_concern_1 = require_read_concern();
     var read_preference_1 = require_read_preference();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var write_concern_1 = require_write_concern();
     var DB_OPTIONS_ALLOW_LIST = [
       "writeConcern",
@@ -54292,7 +55345,7 @@ var require_mongodb_aws = __commonJS({
     var BSON = require_bson2();
     var deps_1 = require_deps();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var auth_provider_1 = require_auth_provider();
     var aws_temporary_credentials_1 = require_aws_temporary_credentials();
     var mongo_credentials_1 = require_mongo_credentials();
@@ -54456,7 +55509,7 @@ var require_callback_workflow = __commonJS({
     exports2.CallbackWorkflow = exports2.AUTOMATED_TIMEOUT_MS = exports2.HUMAN_TIMEOUT_MS = void 0;
     var promises_1 = require("timers/promises");
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_builders_1 = require_command_builders();
     exports2.HUMAN_TIMEOUT_MS = 3e5;
     exports2.AUTOMATED_TIMEOUT_MS = 6e4;
@@ -54646,7 +55699,7 @@ var require_azure_machine_workflow = __commonJS({
     exports2.callback = void 0;
     var azure_1 = require_azure();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var AZURE_HEADERS = Object.freeze({ Metadata: "true", Accept: "application/json" });
     var ENDPOINT_RESULT_ERROR = "Azure endpoint did not return a value with only access_token and expires_in properties";
     var TOKEN_RESOURCE_MISSING_ERROR = "TOKEN_RESOURCE must be set in the auth mechanism properties when ENVIRONMENT is azure.";
@@ -54693,7 +55746,7 @@ var require_gcp_machine_workflow = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.callback = void 0;
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var GCP_BASE_URL = "http://metadata/computeMetadata/v1/instance/service-accounts/default/identity";
     var GCP_HEADERS = Object.freeze({ "Metadata-Flavor": "Google" });
     var TOKEN_RESOURCE_MISSING_ERROR = "TOKEN_RESOURCE must be set in the auth mechanism properties when ENVIRONMENT is gcp.";
@@ -54994,7 +56047,7 @@ var require_plain = __commonJS({
     exports2.Plain = void 0;
     var bson_1 = require_bson2();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var auth_provider_1 = require_auth_provider();
     var Plain = class extends auth_provider_1.AuthProvider {
       async auth(authContext) {
@@ -55371,7 +56424,7 @@ var require_scram = __commonJS({
     var crypto = require("crypto");
     var bson_1 = require_bson2();
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var auth_provider_1 = require_auth_provider();
     var providers_1 = require_providers();
     var ScramSHA = class extends auth_provider_1.AuthProvider {
@@ -55609,7 +56662,7 @@ var require_x509 = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.X509 = void 0;
     var error_1 = require_error();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var auth_provider_1 = require_auth_provider();
     var X509 = class extends auth_provider_1.AuthProvider {
       async prepare(handshakeDoc, authContext) {
@@ -55730,7 +56783,7 @@ var require_client_bulk_write = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.ClientBulkWriteOperation = void 0;
     var responses_1 = require_responses();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_1 = require_command();
     var operation_1 = require_operation();
     var ClientBulkWriteOperation = class extends command_1.CommandOperation {
@@ -55781,7 +56834,7 @@ var require_client_bulk_write_cursor = __commonJS({
     exports2.ClientBulkWriteCursor = void 0;
     var client_bulk_write_1 = require_client_bulk_write();
     var execute_operation_1 = require_execute_operation();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var abstract_cursor_1 = require_abstract_cursor();
     var ClientBulkWriteCursor = class _ClientBulkWriteCursor extends abstract_cursor_1.AbstractCursor {
       /** @internal */
@@ -55836,7 +56889,7 @@ var require_command_builder = __commonJS({
     var commands_1 = require_commands();
     var error_1 = require_error();
     var sort_1 = require_sort2();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var MESSAGE_OVERHEAD_BYTES = 1e3;
     var ClientBulkWriteCommandBuilder = class {
       /**
@@ -56083,7 +57136,7 @@ var require_results_merger = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.ClientBulkWriteResultsMerger = void 0;
-    var __1 = require_lib6();
+    var __1 = require_lib7();
     var error_1 = require_error();
     var UNACKNOWLEDGED = {
       acknowledged: false,
@@ -56273,7 +57326,7 @@ var require_executor = __commonJS({
     var client_bulk_write_cursor_1 = require_client_bulk_write_cursor();
     var error_1 = require_error();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var write_concern_1 = require_write_concern();
     var execute_operation_1 = require_execute_operation();
     var client_bulk_write_1 = require_client_bulk_write();
@@ -56374,7 +57427,7 @@ var require_server_selection_events = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.WaitingForSuitableServerEvent = exports2.ServerSelectionSucceededEvent = exports2.ServerSelectionFailedEvent = exports2.ServerSelectionStartedEvent = exports2.ServerSelectionEvent = void 0;
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var constants_1 = require_constants4();
     var ServerSelectionEvent = class {
       /** @internal */
@@ -56439,7 +57492,7 @@ var require_srv_polling = __commonJS({
     var timers_1 = require("timers");
     var error_1 = require_error();
     var mongo_types_1 = require_mongo_types();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var SrvPollingEvent = class {
       constructor(srvRecords) {
         this.srvRecords = srvRecords;
@@ -56547,7 +57600,7 @@ var require_topology = __commonJS({
     var mongo_types_1 = require_mongo_types();
     var read_preference_1 = require_read_preference();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var common_1 = require_common();
     var events_1 = require_events();
     var server_1 = require_server();
@@ -57172,7 +58225,7 @@ var require_mongo_client = __commonJS({
     var server_selection_1 = require_server_selection();
     var topology_1 = require_topology();
     var sessions_1 = require_sessions();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     exports2.ServerApiVersion = Object.freeze({
       v1: "1"
     });
@@ -57700,7 +58753,7 @@ var require_abstract_cursor = __commonJS({
     var resource_management_1 = require_resource_management();
     var sessions_1 = require_sessions();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     exports2.CURSOR_FLAGS = [
       "tailable",
       "oplogReplay",
@@ -58532,7 +59585,7 @@ var require_aggregation_cursor = __commonJS({
     var explain_1 = require_explain();
     var aggregate_1 = require_aggregate();
     var execute_operation_1 = require_execute_operation();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var abstract_cursor_1 = require_abstract_cursor();
     var explainable_cursor_1 = require_explainable_cursor();
     var AggregationCursor = class _AggregationCursor extends explainable_cursor_1.ExplainableCursor {
@@ -58738,7 +59791,7 @@ var require_find = __commonJS({
     var responses_1 = require_responses();
     var error_1 = require_error();
     var sort_1 = require_sort2();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_1 = require_command();
     var operation_1 = require_operation();
     var FindOperation = class extends command_1.CommandOperation {
@@ -58883,7 +59936,7 @@ var require_find_cursor = __commonJS({
     var execute_operation_1 = require_execute_operation();
     var find_1 = require_find();
     var sort_1 = require_sort2();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var explainable_cursor_1 = require_explainable_cursor();
     exports2.FLAGS = [
       "tailable",
@@ -59413,7 +60466,7 @@ var require_find_and_modify = __commonJS({
     var error_1 = require_error();
     var read_preference_1 = require_read_preference();
     var sort_1 = require_sort2();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var command_1 = require_command();
     var operation_1 = require_operation();
     exports2.ReturnDocument = Object.freeze({
@@ -59707,7 +60760,7 @@ var require_collection2 = __commonJS({
     var update_2 = require_update();
     var read_concern_1 = require_read_concern();
     var read_preference_1 = require_read_preference();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var write_concern_1 = require_write_concern();
     var Collection = class {
       /**
@@ -60392,7 +61445,7 @@ var require_change_stream_cursor = __commonJS({
     var constants_1 = require_constants4();
     var aggregate_1 = require_aggregate();
     var execute_operation_1 = require_execute_operation();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var abstract_cursor_1 = require_abstract_cursor();
     var ChangeStreamCursor = class _ChangeStreamCursor extends abstract_cursor_1.AbstractCursor {
       constructor(client, namespace, pipeline = [], options = {}) {
@@ -60500,7 +61553,7 @@ var require_change_stream = __commonJS({
     var mongo_types_1 = require_mongo_types();
     var resource_management_1 = require_resource_management();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var CHANGE_STREAM_OPTIONS = [
       "resumeAfter",
       "startAfter",
@@ -61161,7 +62214,7 @@ var require_upload = __commonJS({
     var abstract_cursor_1 = require_abstract_cursor();
     var error_1 = require_error();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var write_concern_1 = require_write_concern();
     var GridFSBucketWriteStream = class extends stream_1.Writable {
       /**
@@ -61480,7 +62533,7 @@ var require_gridfs = __commonJS({
     var error_1 = require_error();
     var mongo_types_1 = require_mongo_types();
     var timeout_1 = require_timeout();
-    var utils_1 = require_utils4();
+    var utils_1 = require_utils5();
     var write_concern_1 = require_write_concern();
     var download_1 = require_download();
     var upload_1 = require_upload();
@@ -61624,7 +62677,7 @@ var require_gridfs = __commonJS({
 });
 
 // node_modules/mongodb/lib/index.js
-var require_lib6 = __commonJS({
+var require_lib7 = __commonJS({
   "node_modules/mongodb/lib/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -62450,7 +63503,7 @@ var require_collection3 = __commonJS({
     "use strict";
     var MongooseCollection = require_collection();
     var MongooseError = require_mongooseError();
-    var Collection = require_lib6().Collection;
+    var Collection = require_lib7().Collection;
     var ObjectId2 = require_objectid();
     var getConstructorName = require_getConstructorName();
     var internalToObjectOptions = require_options().internalToObjectOptions;
@@ -64370,7 +65423,7 @@ var require_stringToParts = __commonJS({
 });
 
 // node_modules/mpath/lib/index.js
-var require_lib7 = __commonJS({
+var require_lib8 = __commonJS({
   "node_modules/mpath/lib/index.js"(exports2) {
     var stringToParts = require_stringToParts();
     var ignoreProperties = ["__proto__", "constructor", "prototype"];
@@ -64567,7 +65620,7 @@ var require_lib7 = __commonJS({
 var require_mpath = __commonJS({
   "node_modules/mpath/index.js"(exports2, module2) {
     "use strict";
-    module2.exports = exports2 = require_lib7();
+    module2.exports = exports2 = require_lib8();
   }
 });
 
@@ -64701,7 +65754,7 @@ var require_merge = __commonJS({
 var require_stateMachine = __commonJS({
   "node_modules/mongoose/lib/stateMachine.js"(exports2, module2) {
     "use strict";
-    var utils = require_utils6();
+    var utils = require_utils7();
     var StateMachine = module2.exports = exports2 = function StateMachine2() {
     };
     StateMachine.ctor = function() {
@@ -64848,7 +65901,7 @@ var require_buffer = __commonJS({
     "use strict";
     var Binary = require_bson().Binary;
     var UUID = require_bson().UUID;
-    var utils = require_utils6();
+    var utils = require_utils7();
     function MongooseBuffer(value, encode, offset) {
       let val = value;
       if (value == null) {
@@ -65039,7 +66092,7 @@ var require_mixed = __commonJS({
     var SchemaType = require_schemaType();
     var symbols = require_symbols2();
     var isObject = require_isObject();
-    var utils = require_utils6();
+    var utils = require_utils7();
     function SchemaMixed(path, options, _schemaOptions, parentSchema) {
       if (options && options.default) {
         const def = options.default;
@@ -65348,7 +66401,7 @@ var require_compile = __commonJS({
     var clone = require_clone();
     var documentSchemaSymbol = require_symbols().documentSchemaSymbol;
     var internalToObjectOptions = require_options().internalToObjectOptions;
-    var utils = require_utils6();
+    var utils = require_utils7();
     var Document;
     var getSymbol = require_symbols().getSymbol;
     var scopeSymbol = require_symbols().scopeSymbol;
@@ -65822,7 +66875,7 @@ var require_getSubdocumentStrictValue = __commonJS({
 var require_handleSpreadDoc = __commonJS({
   "node_modules/mongoose/lib/helpers/document/handleSpreadDoc.js"(exports2, module2) {
     "use strict";
-    var utils = require_utils6();
+    var utils = require_utils7();
     var keysToSkip = /* @__PURE__ */ new Set(["__index", "__parentArray", "_doc"]);
     module2.exports = function handleSpreadDoc(v, includeExtraKeys) {
       if (utils.isPOJO(v) && v.$__ != null && v._doc != null) {
@@ -65930,7 +66983,7 @@ var require_isPathExcluded = __commonJS({
 var require_markArraySubdocsPopulated = __commonJS({
   "node_modules/mongoose/lib/helpers/populate/markArraySubdocsPopulated.js"(exports2, module2) {
     "use strict";
-    var utils = require_utils6();
+    var utils = require_utils7();
     module2.exports = function markArraySubdocsPopulated(doc, populated) {
       if (doc._doc._id == null || populated == null || populated.length === 0) {
         return;
@@ -65967,7 +67020,7 @@ var require_markArraySubdocsPopulated = __commonJS({
 var require_minimize = __commonJS({
   "node_modules/mongoose/lib/helpers/minimize.js"(exports2, module2) {
     "use strict";
-    var { isPOJO } = require_utils6();
+    var { isPOJO } = require_utils7();
     module2.exports = minimize;
     function minimize(obj) {
       const keys = Object.keys(obj);
@@ -66401,7 +67454,7 @@ var require_subdocument = __commonJS({
     var immediate = require_immediate();
     var internalToObjectOptions = require_options().internalToObjectOptions;
     var util = require("util");
-    var utils = require_utils6();
+    var utils = require_utils7();
     module2.exports = Subdocument;
     function Subdocument(value, fields, parent, skipId, options) {
       if (typeof skipId === "object" && skipId != null && options == null) {
@@ -66658,7 +67711,7 @@ var require_arraySubdocument = __commonJS({
     "use strict";
     var EventEmitter = require("events").EventEmitter;
     var Subdocument = require_subdocument();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var documentArrayParent = require_symbols().documentArrayParent;
     function ArraySubdocument(obj, parentArr, skipId, fields, index) {
       if (utils.isMongooseDocumentArray(parentArr)) {
@@ -66762,7 +67815,7 @@ var require_methods2 = __commonJS({
     var clone = require_clone();
     var internalToObjectOptions = require_options().internalToObjectOptions;
     var mpath = require_mpath();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var isBsonType = require_isBsonType();
     var arrayAtomicsBackupSymbol = require_symbols().arrayAtomicsBackupSymbol;
     var arrayAtomicsSymbol = require_symbols().arrayAtomicsSymbol;
@@ -67749,7 +68802,7 @@ var require_methods3 = __commonJS({
     var Document = require_document2();
     var getDiscriminatorByValue = require_getDiscriminatorByValue();
     var internalToObjectOptions = require_options().internalToObjectOptions;
-    var utils = require_utils6();
+    var utils = require_utils7();
     var isBsonType = require_isBsonType();
     var arrayParentSymbol = require_symbols().arrayParentSymbol;
     var arrayPathSymbol = require_symbols().arrayPathSymbol;
@@ -68182,7 +69235,7 @@ var require_document2 = __commonJS({
     var mpath = require_mpath();
     var parentPaths = require_parentPaths();
     var queryhelpers = require_queryHelpers();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var isPromise = require_isPromise();
     var deepEqual = utils.deepEqual;
     var isMongooseObject = utils.isMongooseObject;
@@ -71215,7 +72268,7 @@ var require_document2 = __commonJS({
 });
 
 // node_modules/mongoose/lib/utils.js
-var require_utils6 = __commonJS({
+var require_utils7 = __commonJS({
   "node_modules/mongoose/lib/utils.js"(exports2) {
     "use strict";
     var UUID = require_bson().UUID;
@@ -71860,7 +72913,7 @@ var require_schemaType = __commonJS({
     var isSimpleValidator = require_isSimpleValidator();
     var immediate = require_immediate();
     var schemaTypeSymbol = require_symbols().schemaTypeSymbol;
-    var utils = require_utils6();
+    var utils = require_utils7();
     var validatorErrorSymbol = require_symbols().validatorErrorSymbol;
     var documentIsModified = require_symbols().documentIsModified;
     var populateModelSymbol = require_symbols().populateModelSymbol;
@@ -72639,7 +73692,7 @@ var require_modelNamesFromRefPath = __commonJS({
     var lookupLocalFields = require_lookupLocalFields();
     var mpath = require_mpath();
     var util = require("util");
-    var utils = require_utils6();
+    var utils = require_utils7();
     var hasNumericPropRE = /(\.\d+$|\.\d+\.)/g;
     module2.exports = function modelNamesFromRefPath(refPath, doc, populatedPath, modelSchema, queryProjection) {
       if (refPath == null) {
@@ -72690,7 +73743,7 @@ var require_virtualType = __commonJS({
   "node_modules/mongoose/lib/virtualType.js"(exports2, module2) {
     "use strict";
     var modelNamesFromRefPath = require_modelNamesFromRefPath();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var modelSymbol = require_symbols().modelSymbol;
     function VirtualType(options, name) {
       this.path = name;
@@ -73626,7 +74679,7 @@ var require_map = __commonJS({
     "use strict";
     var MongooseError = require_mongooseError();
     var clone = require_clone();
-    var deepEqual = require_utils6().deepEqual;
+    var deepEqual = require_utils7().deepEqual;
     var getConstructorName = require_getConstructorName();
     var handleSpreadDoc = require_handleSpreadDoc();
     var util = require("util");
@@ -74424,7 +75477,7 @@ var require_cast2 = __commonJS({
     var util = require("util");
     var isObject = require_isObject();
     var isMongooseObject = require_isMongooseObject();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var ALLOWED_GEOWITHIN_GEOJSON_TYPES = ["Polygon", "MultiPolygon"];
     module2.exports = function cast(schema, obj, options, context) {
       if (Array.isArray(obj)) {
@@ -74837,7 +75890,7 @@ var require_number2 = __commonJS({
     var castNumber = require_number();
     var createJSONSchemaTypeDefinition = require_createJSONSchemaTypeDefinition();
     var handleBitwiseOperator = require_bitwise();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var CastError = SchemaType.CastError;
     function SchemaNumber(key, options, _schemaOptions, parentSchema) {
       SchemaType.call(this, key, options, "Number", parentSchema);
@@ -75157,7 +76210,7 @@ var require_array2 = __commonJS({
     var getConstructorName = require_getConstructorName();
     var isOperator = require_isOperator();
     var util = require("util");
-    var utils = require_utils6();
+    var utils = require_utils7();
     var castToNumber = require_helpers().castToNumber;
     var createJSONSchemaTypeDefinition = require_createJSONSchemaTypeDefinition();
     var geospatial = require_geospatial();
@@ -75835,7 +76888,7 @@ var require_buffer2 = __commonJS({
     var SchemaType = require_schemaType();
     var createJSONSchemaTypeDefinition = require_createJSONSchemaTypeDefinition();
     var handleBitwiseOperator = require_bitwise();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var Binary = MongooseBuffer.Binary;
     var CastError = SchemaType.CastError;
     function SchemaBuffer(key, options, _schemaOptions, parentSchema) {
@@ -76040,7 +77093,7 @@ var require_date2 = __commonJS({
     var castDate = require_date();
     var createJSONSchemaTypeDefinition = require_createJSONSchemaTypeDefinition();
     var getConstructorName = require_getConstructorName();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var CastError = SchemaType.CastError;
     function SchemaDate(key, options, _schemaOptions, parentSchema) {
       SchemaType.call(this, key, options, "Date", parentSchema);
@@ -76464,7 +77517,7 @@ var require_sharding = __commonJS({
   "node_modules/mongoose/lib/plugins/sharding.js"(exports2, module2) {
     "use strict";
     var objectIdSymbol = require_symbols().objectIdSymbol;
-    var utils = require_utils6();
+    var utils = require_utils7();
     module2.exports = function shardingPlugin(schema) {
       schema.post("init", function shardingPluginPostInit() {
         storeShard.call(this);
@@ -76528,7 +77581,7 @@ var require_trackTransaction = __commonJS({
     "use strict";
     var arrayAtomicsSymbol = require_symbols().arrayAtomicsSymbol;
     var sessionNewDocuments = require_symbols().sessionNewDocuments;
-    var utils = require_utils6();
+    var utils = require_utils7();
     module2.exports = function trackTransaction(schema) {
       schema.pre("save", function trackTransactionPreSave() {
         const session = this.$session();
@@ -76741,7 +77794,7 @@ var require_discriminator = __commonJS({
     var clone = require_clone();
     var defineKey = require_compile().defineKey;
     var get = require_get2();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var mergeDiscriminatorSchema = require_mergeDiscriminatorSchema();
     var CUSTOMIZABLE_DISCRIMINATOR_OPTIONS = {
       toJSON: true,
@@ -77016,7 +78069,7 @@ var require_subdocument2 = __commonJS({
     var handleIdOption = require_handleIdOption();
     var internalToObjectOptions = require_options().internalToObjectOptions;
     var isExclusive = require_isExclusive();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var InvalidSchemaOptionError = require_invalidSchemaOption();
     var SubdocumentType;
     module2.exports = SchemaSubdocument;
@@ -77308,7 +78361,7 @@ var require_documentArray2 = __commonJS({
     var handleIdOption = require_handleIdOption();
     var handleSpreadDoc = require_handleSpreadDoc();
     var isOperator = require_isOperator();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var getConstructor = require_getConstructor();
     var InvalidSchemaOptionError = require_invalidSchemaOption();
     var arrayAtomicsSymbol = require_symbols().arrayAtomicsSymbol;
@@ -77984,7 +79037,7 @@ var require_map2 = __commonJS({
     var createJSONSchemaTypeDefinition = require_createJSONSchemaTypeDefinition();
     var MongooseError = require_mongooseError();
     var Schema = require_schema2();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var SchemaMap = class extends SchemaType {
       /**
        * Map SchemaType constructor.
@@ -78184,7 +79237,7 @@ var require_objectId = __commonJS({
     var getConstructorName = require_getConstructorName();
     var oid = require_objectid();
     var isBsonType = require_isBsonType();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var CastError = SchemaType.CastError;
     var Document;
     function SchemaObjectId(key, options, _schemaOptions, parentSchema) {
@@ -78329,7 +79382,7 @@ var require_string2 = __commonJS({
     var SchemaStringOptions = require_schemaStringOptions();
     var castString = require_string();
     var createJSONSchemaTypeDefinition = require_createJSONSchemaTypeDefinition();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var isBsonType = require_isBsonType();
     var CastError = SchemaType.CastError;
     function SchemaString(key, options, _schemaOptions, parentSchema) {
@@ -78668,7 +79721,7 @@ var require_uuid3 = __commonJS({
     var CastError = SchemaType.CastError;
     var castUUID = require_uuid2();
     var createJSONSchemaTypeDefinition = require_createJSONSchemaTypeDefinition();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var handleBitwiseOperator = require_bitwise();
     var UUID_FORMAT = castUUID.UUID_FORMAT;
     var Binary = MongooseBuffer.Binary;
@@ -78944,7 +79997,7 @@ var require_schema2 = __commonJS({
     var mpath = require_mpath();
     var setPopulatedVirtualValue = require_setPopulatedVirtualValue();
     var setupTimestamps = require_setupTimestamps();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var validateRef = require_validateRef();
     var hasNumericSubpathRegex = /\.\d+(\.|$)/;
     var MongooseTypes;
@@ -80980,7 +82033,7 @@ var require_castUpdate = __commonJS({
     var moveImmutableProperties = require_moveImmutableProperties();
     var schemaMixedSymbol = require_symbols2().schemaMixedSymbol;
     var setDottedPath = require_setDottedPath();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var { internalToObjectOptions } = require_options();
     var mongodbUpdateOperators = /* @__PURE__ */ new Set([
       "$currentDate",
@@ -81859,7 +82912,7 @@ var require_connection2 = __commonJS({
     var get = require_get2();
     var getDefaultBulkwriteResult = require_getDefaultBulkwriteResult();
     var immediate = require_immediate();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var CreateCollectionsError = require_createCollectionsError();
     var castBulkWrite = require_castBulkWrite();
     var { modelSymbol } = require_symbols();
@@ -82882,11 +83935,11 @@ var require_connection3 = __commonJS({
     var MongooseConnection = require_connection2();
     var MongooseError = require_error2();
     var STATES = require_connectionState();
-    var mongodb = require_lib6();
+    var mongodb = require_lib7();
     var pkg = require_package2();
     var processConnectionOptions = require_processConnectionOptions();
     var setTimeout2 = require_timers().setTimeout;
-    var utils = require_utils6();
+    var utils = require_utils7();
     var Schema = require_schema2();
     function NativeConnection() {
       MongooseConnection.apply(this, arguments);
@@ -83192,7 +84245,7 @@ var require_node_mongodb_native = __commonJS({
     exports2.BulkWriteResult = require_bulkWriteResult();
     exports2.Collection = require_collection3();
     exports2.Connection = require_connection3();
-    exports2.ClientEncryption = require_lib6().ClientEncryption;
+    exports2.ClientEncryption = require_lib7().ClientEncryption;
   }
 });
 
@@ -83790,7 +84843,7 @@ var require_queryCursor = __commonJS({
 var require_applyGlobalOption = __commonJS({
   "node_modules/mongoose/lib/helpers/query/applyGlobalOption.js"(exports2, module2) {
     "use strict";
-    var utils = require_utils6();
+    var utils = require_utils7();
     function applyGlobalMaxTimeMS(options, connectionOptions, baseOptions) {
       applyGlobalOption(options, connectionOptions, baseOptions, "maxTimeMS");
     }
@@ -84100,7 +85153,7 @@ var require_isSubpath = __commonJS({
 });
 
 // node_modules/mquery/lib/utils.js
-var require_utils7 = __commonJS({
+var require_utils8 = __commonJS({
   "node_modules/mquery/lib/utils.js"(exports2) {
     "use strict";
     var specialProperties = ["__proto__", "constructor", "prototype"];
@@ -85117,7 +86170,7 @@ var require_mquery = __commonJS({
     "use strict";
     var assert = require("assert");
     var util = require("util");
-    var utils = require_utils7();
+    var utils = require_utils8();
     var debug = require_src4()("mquery");
     function Query(criteria, options) {
       if (!(this instanceof Query))
@@ -86522,7 +87575,7 @@ var require_query2 = __commonJS({
     var specialProperties = require_specialProperties();
     var updateValidators = require_updateValidators();
     var util = require("util");
-    var utils = require_utils6();
+    var utils = require_utils7();
     var queryMiddlewareFunctions = require_constants5().queryMiddlewareFunctions;
     var queryOptionMethods = /* @__PURE__ */ new Set([
       "allowDiskUse",
@@ -89014,7 +90067,7 @@ var require_aggregate2 = __commonJS({
     var getConstructorName = require_getConstructorName();
     var prepareDiscriminatorPipeline = require_prepareDiscriminatorPipeline();
     var stringifyFunctionOperators = require_stringifyFunctionOperators();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var { modelSymbol } = require_symbols();
     var read = Query.prototype.read;
     var readConcern = Query.prototype.readConcern;
@@ -89527,7 +90580,7 @@ var require_applyMethods = __commonJS({
   "node_modules/mongoose/lib/helpers/model/applyMethods.js"(exports2, module2) {
     "use strict";
     var get = require_get2();
-    var utils = require_utils6();
+    var utils = require_utils7();
     module2.exports = function applyMethods(model, schema) {
       const Model = require_model();
       function apply(method, schema2) {
@@ -89581,7 +90634,7 @@ var require_applyProjection = __commonJS({
     var hasIncludedChildren = require_hasIncludedChildren();
     var isExclusive = require_isExclusive();
     var isInclusive = require_isInclusive();
-    var isPOJO = require_utils6().isPOJO;
+    var isPOJO = require_utils7().isPOJO;
     module2.exports = function applyProjection(doc, projection, _hasIncludedChildren) {
       if (projection == null) {
         return doc;
@@ -89977,7 +91030,7 @@ var require_assignRawDocsToIdStructure = __commonJS({
     var clone = require_clone();
     var leanPopulateMap = require_leanPopulateMap();
     var modelSymbol = require_symbols().modelSymbol;
-    var utils = require_utils6();
+    var utils = require_utils7();
     module2.exports = assignRawDocsToIdStructure;
     var kHasArray = Symbol("mongoose#assignRawDocsToIdStructure#hasArray");
     function assignRawDocsToIdStructure(rawIds, resultDocs, resultOrder, options, recursed) {
@@ -90151,7 +91204,7 @@ var require_getVirtual = __commonJS({
 });
 
 // node_modules/sift/lib/index.js
-var require_lib8 = __commonJS({
+var require_lib9 = __commonJS({
   "node_modules/sift/lib/index.js"(exports2, module2) {
     (function(global2, factory) {
       typeof exports2 === "object" && typeof module2 !== "undefined" ? factory(exports2) : typeof define === "function" && define.amd ? define(["exports"], factory) : (global2 = typeof globalThis !== "undefined" ? globalThis : global2 || self, factory(global2.sift = {}));
@@ -90985,7 +92038,7 @@ var require_lib8 = __commonJS({
 // node_modules/sift/index.js
 var require_sift = __commonJS({
   "node_modules/sift/index.js"(exports2, module2) {
-    var lib = require_lib8();
+    var lib = require_lib9();
     module2.exports = lib.default;
     Object.assign(module2.exports, lib);
   }
@@ -91005,7 +92058,7 @@ var require_assignVals = __commonJS({
     var markArraySubdocsPopulated = require_markArraySubdocsPopulated();
     var mpath = require_mpath();
     var sift = require_sift().default;
-    var utils = require_utils6();
+    var utils = require_utils7();
     var { populateModelSymbol } = require_symbols();
     module2.exports = function assignVals(o) {
       const userOptions = Object.assign({}, get(o, "allOptions.options.options"), get(o, "allOptions.options"));
@@ -91512,7 +92565,7 @@ var require_getModelsMapForPopulate = __commonJS({
     var lookupLocalFields = require_lookupLocalFields();
     var mpath = require_mpath();
     var modelNamesFromRefPath = require_modelNamesFromRefPath();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var modelSymbol = require_symbols().modelSymbol;
     var populateModelSymbol = require_symbols().populateModelSymbol;
     var schemaMixedSymbol = require_symbols2().schemaMixedSymbol;
@@ -92102,7 +93155,7 @@ var require_isIndexEqual = __commonJS({
   "node_modules/mongoose/lib/helpers/indexes/isIndexEqual.js"(exports2, module2) {
     "use strict";
     var get = require_get2();
-    var utils = require_utils6();
+    var utils = require_utils7();
     module2.exports = function isIndexEqual(schemaIndexKeysObject, options, dbIndex) {
       if (dbIndex.textIndexVersion != null) {
         delete dbIndex.key._fts;
@@ -92402,7 +93455,7 @@ var require_model = __commonJS({
     var removeDeselectedForeignField = require_removeDeselectedForeignField();
     var setDottedPath = require_setDottedPath();
     var util = require("util");
-    var utils = require_utils6();
+    var utils = require_utils7();
     var minimize = require_minimize();
     var MongooseBulkSaveIncompleteError = require_bulkSaveIncompleteError();
     var ObjectExpectedError = require_objectExpected();
@@ -95105,7 +96158,7 @@ var require_setOptionError = __commonJS({
 var require_printJestWarning = __commonJS({
   "node_modules/mongoose/lib/helpers/printJestWarning.js"() {
     "use strict";
-    var utils = require_utils6();
+    var utils = require_utils7();
     if (typeof jest !== "undefined" && !process.env.SUPPRESS_JEST_WARNINGS) {
       if (typeof window !== "undefined") {
         utils.warn("Mongoose: looks like you're trying to test a Mongoose app with Jest's default jsdom test environment. Please make sure you read Mongoose's docs on configuring Jest to test Node.js apps: https://mongoosejs.com/docs/jest.html. Set the SUPPRESS_JEST_WARNINGS to true to hide this warning.");
@@ -95218,7 +96271,7 @@ var require_mongoose = __commonJS({
     var builtinPlugins = require_plugins();
     var driver = require_driver();
     var legacyPluralize = require_pluralize();
-    var utils = require_utils6();
+    var utils = require_utils7();
     var pkg = require_package2();
     var cast = require_cast2();
     var Aggregate = require_aggregate2();
@@ -95622,14 +96675,14 @@ var require_mongoose = __commonJS({
 });
 
 // node_modules/mongoose/lib/index.js
-var require_lib9 = __commonJS({
+var require_lib10 = __commonJS({
   "node_modules/mongoose/lib/index.js"(exports2, module2) {
     "use strict";
     var mongodbDriver = require_node_mongodb_native();
     require_driver().set(mongodbDriver);
     var mongoose9 = require_mongoose();
     mongoose9.setDriver(mongodbDriver);
-    mongoose9.Mongoose.prototype.mongo = require_lib6();
+    mongoose9.Mongoose.prototype.mongo = require_lib7();
     module2.exports = mongoose9;
   }
 });
@@ -95638,7 +96691,7 @@ var require_lib9 = __commonJS({
 var require_mongoose2 = __commonJS({
   "node_modules/mongoose/index.js"(exports2, module2) {
     "use strict";
-    var mongoose9 = require_lib9();
+    var mongoose9 = require_lib10();
     module2.exports = mongoose9;
     module2.exports.default = mongoose9;
     module2.exports.mongoose = mongoose9;
@@ -95700,7 +96753,7 @@ var import_serverless_express = __toESM(require_src2(), 1);
 
 // app.js
 var import_express8 = __toESM(require_express3(), 1);
-var import_cors = __toESM(require_lib3(), 1);
+var import_cors = __toESM(require_lib4(), 1);
 
 // routes/auth.js
 var import_express = __toESM(require_express3(), 1);

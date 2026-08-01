@@ -198,7 +198,9 @@ router.post('/', async (req, res) => {
       date, customer, officeBranch, description, paymentStatus, isDC,
       materialType, thickness, rateMode,
       runningMeter, piercingCount, ratePerPiece, quantity,
-      addMaterialCost, materialKg, materialRatePerKg,
+      addMaterialCost, materialThickness, materialLength, materialWidth,
+      materialKg, materialRatePerKg, materialCost,
+      addBending, bendingHours, bendingRatePerHour, bendingCost,
       runningMeterRate, piercingRate, totalAmount,
     } = req.body;
 
@@ -227,8 +229,16 @@ router.post('/', async (req, res) => {
       ratePerPiece: Number(ratePerPiece) || 0,
       quantity: Number(quantity) || 1,
       addMaterialCost: !!addMaterialCost,
+      materialThickness: Number(materialThickness) || 0,
+      materialLength: Number(materialLength) || 0,
+      materialWidth: Number(materialWidth) || 0,
       materialKg: Number(materialKg) || 0,
       materialRatePerKg: Number(materialRatePerKg) || 0,
+      materialCost: Number(materialCost) || 0,
+      addBending: !!addBending,
+      bendingHours: Number(bendingHours) || 0,
+      bendingRatePerHour: Number(bendingRatePerHour) || 0,
+      bendingCost: Number(bendingCost) || 0,
       runningMeterRate: Number(runningMeterRate) || 0,
       piercingRate: Number(piercingRate) || 0,
       totalAmount: Number(totalAmount) || 0,
@@ -265,7 +275,9 @@ router.put('/:id', async (req, res) => {
       'date', 'customer', 'officeBranch', 'description', 'paymentStatus', 'isDC',
       'materialType', 'thickness', 'rateMode',
       'runningMeter', 'piercingCount', 'ratePerPiece', 'quantity',
-      'addMaterialCost', 'materialKg', 'materialRatePerKg',
+      'addMaterialCost', 'materialThickness', 'materialLength', 'materialWidth',
+      'materialKg', 'materialRatePerKg', 'materialCost',
+      'addBending', 'bendingHours', 'bendingRatePerHour', 'bendingCost',
       'runningMeterRate', 'piercingRate', 'totalAmount',
     ];
     for (const f of fields) {
