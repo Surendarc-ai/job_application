@@ -42263,68 +42263,47 @@ var require_mongo_credentials = __commonJS({
 var require_package = __commonJS({
   "node_modules/mongodb/package.json"(exports2, module2) {
     module2.exports = {
-      name: "mongodb",
-      version: "6.20.0",
-      description: "The official MongoDB driver for Node.js",
-      main: "lib/index.js",
-      files: [
-        "lib",
-        "src",
-        "etc/prepare.js",
-        "mongodb.d.ts",
-        "tsconfig.json"
+      _args: [
+        [
+          "mongodb@6.20.0",
+          "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmp_xti98pp"
+        ]
       ],
-      types: "mongodb.d.ts",
-      repository: {
-        type: "git",
-        url: "git@github.com:mongodb/node-mongodb-native.git"
+      _from: "mongodb@6.20.0",
+      _id: "mongodb@6.20.0",
+      _inBundle: false,
+      _integrity: "sha512-Tl6MEIU3K4Rq3TSHd+sZQqRBoGlFsOgNrH5ltAcFBV62Re3Fd+FcaVf8uSEQFOJ51SDowDVttBTONMfoYWrWlQ==",
+      _location: "/mongodb",
+      _phantomChildren: {},
+      _requested: {
+        type: "version",
+        registry: true,
+        raw: "mongodb@6.20.0",
+        name: "mongodb",
+        escapedName: "mongodb",
+        rawSpec: "6.20.0",
+        saveSpec: null,
+        fetchSpec: "6.20.0"
       },
-      keywords: [
-        "mongodb",
-        "driver",
-        "official"
+      _requiredBy: [
+        "/mongoose"
       ],
+      _resolved: "https://registry.npmjs.org/mongodb/-/mongodb-6.20.0.tgz",
+      _spec: "6.20.0",
+      _where: "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmp_xti98pp",
       author: {
         name: "The MongoDB NodeJS Team",
         email: "dbx-node@mongodb.com"
+      },
+      bugs: {
+        url: "https://jira.mongodb.org/projects/NODE/issues/"
       },
       dependencies: {
         "@mongodb-js/saslprep": "^1.3.0",
         bson: "^6.10.4",
         "mongodb-connection-string-url": "^3.0.2"
       },
-      peerDependencies: {
-        "@aws-sdk/credential-providers": "^3.188.0",
-        "@mongodb-js/zstd": "^1.1.0 || ^2.0.0",
-        "gcp-metadata": "^5.2.0",
-        kerberos: "^2.0.1",
-        "mongodb-client-encryption": ">=6.0.0 <7",
-        snappy: "^7.3.2",
-        socks: "^2.7.1"
-      },
-      peerDependenciesMeta: {
-        "@aws-sdk/credential-providers": {
-          optional: true
-        },
-        "@mongodb-js/zstd": {
-          optional: true
-        },
-        kerberos: {
-          optional: true
-        },
-        snappy: {
-          optional: true
-        },
-        "mongodb-client-encryption": {
-          optional: true
-        },
-        "gcp-metadata": {
-          optional: true
-        },
-        socks: {
-          optional: true
-        }
-      },
+      description: "The official MongoDB driver for Node.js",
       devDependencies: {
         "@aws-sdk/credential-providers": "^3.876.0",
         "@iarna/toml": "^2.2.5",
@@ -42377,51 +42356,98 @@ var require_package = __commonJS({
         "v8-heapsnapshot": "^1.3.1",
         yargs: "^18.0.0"
       },
-      license: "Apache-2.0",
       engines: {
         node: ">=16.20.1"
       },
-      bugs: {
-        url: "https://jira.mongodb.org/projects/NODE/issues/"
-      },
+      files: [
+        "lib",
+        "src",
+        "etc/prepare.js",
+        "mongodb.d.ts",
+        "tsconfig.json"
+      ],
       homepage: "https://github.com/mongodb/node-mongodb-native",
+      keywords: [
+        "mongodb",
+        "driver",
+        "official"
+      ],
+      license: "Apache-2.0",
+      main: "lib/index.js",
+      name: "mongodb",
+      peerDependencies: {
+        "@aws-sdk/credential-providers": "^3.188.0",
+        "@mongodb-js/zstd": "^1.1.0 || ^2.0.0",
+        "gcp-metadata": "^5.2.0",
+        kerberos: "^2.0.1",
+        "mongodb-client-encryption": ">=6.0.0 <7",
+        snappy: "^7.3.2",
+        socks: "^2.7.1"
+      },
+      peerDependenciesMeta: {
+        "@aws-sdk/credential-providers": {
+          optional: true
+        },
+        "@mongodb-js/zstd": {
+          optional: true
+        },
+        kerberos: {
+          optional: true
+        },
+        snappy: {
+          optional: true
+        },
+        "mongodb-client-encryption": {
+          optional: true
+        },
+        "gcp-metadata": {
+          optional: true
+        },
+        socks: {
+          optional: true
+        }
+      },
+      repository: {
+        type: "git",
+        url: "git+ssh://git@github.com/mongodb/node-mongodb-native.git"
+      },
       scripts: {
-        "build:evergreen": "node .evergreen/generate_evergreen_tasks.js",
-        "build:ts": "node ./node_modules/typescript/bin/tsc",
-        "build:dts": "npm run build:ts && api-extractor run && node etc/clean_definition_files.cjs && ESLINT_USE_FLAT_CONFIG=false eslint --no-ignore --fix mongodb.d.ts lib/beta.d.ts",
         "build:docs": "./etc/docs/build.ts",
-        "build:typedoc": "typedoc",
+        "build:dts": "npm run build:ts && api-extractor run && node etc/clean_definition_files.cjs && ESLINT_USE_FLAT_CONFIG=false eslint --no-ignore --fix mongodb.d.ts lib/beta.d.ts",
+        "build:evergreen": "node .evergreen/generate_evergreen_tasks.js",
         "build:nightly": "node ./.github/scripts/nightly.mjs",
+        "build:ts": "node ./node_modules/typescript/bin/tsc",
+        "build:typedoc": "typedoc",
+        "check:adl": "nyc mocha --config test/mocha_mongodb.js test/manual/atlas-data-lake-testing",
+        "check:atlas": "nyc mocha --config test/manual/mocharc.js test/manual/atlas_connectivity.test.ts",
+        "check:aws": "nyc mocha --config test/mocha_mongodb.js test/integration/auth/mongodb_aws.test.ts",
         "check:bench": "npm --prefix test/benchmarks/driver_bench start",
         "check:coverage": "nyc npm run test:all",
+        "check:csfle": "nyc mocha --config test/mocha_mongodb.js test/integration/client-side-encryption",
+        "check:dependencies": "mocha test/action/dependency.test.ts",
+        "check:drivers-atlas-testing": "nyc mocha --config test/mocha_mongodb.js test/atlas/drivers_atlas_testing.test.ts",
+        "check:dts": "node ./node_modules/typescript/bin/tsc --noEmit mongodb.d.ts && tsd",
+        "check:eslint": "npm run build:dts && ESLINT_USE_FLAT_CONFIG=false eslint -v && ESLINT_USE_FLAT_CONFIG=false eslint --max-warnings=0 --ext '.js,.ts' src test",
         "check:integration-coverage": "nyc npm run check:test",
+        "check:kerberos": "nyc mocha --config test/manual/mocharc.js test/manual/kerberos.test.ts",
         "check:lambda": "nyc mocha --config test/mocha_lambda.js test/integration/node-specific/examples/handler.test.js",
         "check:lambda:aws": "nyc mocha --config test/mocha_lambda.js test/integration/node-specific/examples/aws_handler.test.js",
+        "check:ldap": "nyc mocha --config test/manual/mocharc.js test/manual/ldap.test.ts",
         "check:lint": "npm run build:dts && npm run check:dts && npm run check:eslint && npm run check:tsd",
-        "check:eslint": "npm run build:dts && ESLINT_USE_FLAT_CONFIG=false eslint -v && ESLINT_USE_FLAT_CONFIG=false eslint --max-warnings=0 --ext '.js,.ts' src test",
-        "check:tsd": "tsd --version && tsd",
-        "check:dependencies": "mocha test/action/dependency.test.ts",
-        "check:dts": "node ./node_modules/typescript/bin/tsc --noEmit mongodb.d.ts && tsd",
-        "check:search-indexes": "nyc mocha --config test/mocha_mongodb.js test/manual/search-index-management.prose.test.ts",
-        "check:test": "mocha --config test/mocha_mongodb.js test/integration",
-        "check:unit": "nyc mocha test/unit",
-        "check:ts": "node ./node_modules/typescript/bin/tsc -v && node ./node_modules/typescript/bin/tsc --noEmit",
-        "check:atlas": "nyc mocha --config test/manual/mocharc.js test/manual/atlas_connectivity.test.ts",
-        "check:resource-management": "nyc mocha --config test/manual/mocharc.js test/manual/resource_management.test.ts",
-        "check:drivers-atlas-testing": "nyc mocha --config test/mocha_mongodb.js test/atlas/drivers_atlas_testing.test.ts",
-        "check:adl": "nyc mocha --config test/mocha_mongodb.js test/manual/atlas-data-lake-testing",
-        "check:aws": "nyc mocha --config test/mocha_mongodb.js test/integration/auth/mongodb_aws.test.ts",
         "check:oidc-auth": "nyc mocha --config test/mocha_mongodb.js test/integration/auth/auth.spec.test.ts",
-        "check:oidc-test": "nyc mocha --config test/mocha_mongodb.js test/integration/auth/mongodb_oidc.prose.test.ts",
         "check:oidc-azure": "nyc mocha --config test/mocha_mongodb.js test/integration/auth/mongodb_oidc_azure.prose.05.test.ts",
         "check:oidc-gcp": "nyc mocha --config test/mocha_mongodb.js test/integration/auth/mongodb_oidc_gcp.prose.06.test.ts",
         "check:oidc-k8s": "nyc mocha --config test/mocha_mongodb.js test/integration/auth/mongodb_oidc_k8s.prose.07.test.ts",
-        "check:kerberos": "nyc mocha --config test/manual/mocharc.js test/manual/kerberos.test.ts",
-        "check:tls": "nyc mocha --config test/manual/mocharc.js test/manual/tls_support.test.ts",
-        "check:ldap": "nyc mocha --config test/manual/mocharc.js test/manual/ldap.test.ts",
-        "check:socks5": "nyc mocha --config test/manual/mocharc.js test/manual/socks5.test.ts",
-        "check:csfle": "nyc mocha --config test/mocha_mongodb.js test/integration/client-side-encryption",
+        "check:oidc-test": "nyc mocha --config test/mocha_mongodb.js test/integration/auth/mongodb_oidc.prose.test.ts",
+        "check:resource-management": "nyc mocha --config test/manual/mocharc.js test/manual/resource_management.test.ts",
+        "check:search-indexes": "nyc mocha --config test/mocha_mongodb.js test/manual/search-index-management.prose.test.ts",
         "check:snappy": "nyc mocha test/unit/assorted/snappy.test.js",
+        "check:socks5": "nyc mocha --config test/manual/mocharc.js test/manual/socks5.test.ts",
+        "check:test": "mocha --config test/mocha_mongodb.js test/integration",
+        "check:tls": "nyc mocha --config test/manual/mocharc.js test/manual/tls_support.test.ts",
+        "check:ts": "node ./node_modules/typescript/bin/tsc -v && node ./node_modules/typescript/bin/tsc --noEmit",
+        "check:tsd": "tsd --version && tsd",
+        "check:unit": "nyc mocha test/unit",
         "check:x509": "nyc mocha test/manual/x509_auth.test.ts",
         "fix:eslint": "npm run check:eslint -- --fix",
         prepare: "node etc/prepare.js",
@@ -42438,7 +42464,9 @@ var require_package = __commonJS({
           module: "commonjs",
           moduleResolution: "node"
         }
-      }
+      },
+      types: "mongodb.d.ts",
+      version: "6.20.0"
     };
   }
 });
@@ -83714,26 +83742,47 @@ var require_connection2 = __commonJS({
 var require_package2 = __commonJS({
   "node_modules/mongoose/package.json"(exports2, module2) {
     module2.exports = {
-      name: "mongoose",
-      description: "Mongoose MongoDB ODM",
-      version: "8.22.0",
-      author: "Guillermo Rauch <guillermo@learnboost.com>",
-      keywords: [
-        "mongodb",
-        "document",
-        "model",
-        "schema",
-        "database",
-        "odm",
-        "data",
-        "datastore",
-        "query",
-        "nosql",
-        "orm",
-        "db"
+      _args: [
+        [
+          "mongoose@8.22.0",
+          "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmp_xti98pp"
+        ]
       ],
-      type: "commonjs",
-      license: "MIT",
+      _from: "mongoose@8.22.0",
+      _id: "mongoose@8.22.0",
+      _inBundle: false,
+      _integrity: "sha512-LKTPPqD3CVcSZJRzPcwKiSVYTmAvBZeVT0V34vUiqPEo9sBmOEg1y4TpDbUb90Zf2lO4N05ailQnKxiapCN08g==",
+      _location: "/mongoose",
+      _phantomChildren: {},
+      _requested: {
+        type: "version",
+        registry: true,
+        raw: "mongoose@8.22.0",
+        name: "mongoose",
+        escapedName: "mongoose",
+        rawSpec: "8.22.0",
+        saveSpec: null,
+        fetchSpec: "8.22.0"
+      },
+      _requiredBy: [
+        "/"
+      ],
+      _resolved: "https://registry.npmjs.org/mongoose/-/mongoose-8.22.0.tgz",
+      _spec: "8.22.0",
+      _where: "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmp_xti98pp",
+      author: {
+        name: "Guillermo Rauch",
+        email: "guillermo@learnboost.com"
+      },
+      browser: "./dist/browser.umd.js",
+      bugs: {
+        url: "https://github.com/Automattic/mongoose/issues/new"
+      },
+      config: {
+        mongodbMemoryServer: {
+          disablePostinstall: true
+        }
+      },
       dependencies: {
         bson: "^6.10.4",
         kareem: "2.6.3",
@@ -83743,6 +83792,7 @@ var require_package2 = __commonJS({
         ms: "2.1.3",
         sift: "17.1.3"
       },
+      description: "Mongoose MongoDB ODM",
       devDependencies: {
         "@ark/attest": "0.53.0",
         "@babel/core": "7.28.5",
@@ -83790,70 +83840,76 @@ var require_package2 = __commonJS({
       directories: {
         lib: "./lib/mongoose"
       },
+      engines: {
+        node: ">=16.20.1"
+      },
+      funding: {
+        type: "opencollective",
+        url: "https://opencollective.com/mongoose"
+      },
+      homepage: "https://mongoosejs.com",
+      keywords: [
+        "mongodb",
+        "document",
+        "model",
+        "schema",
+        "database",
+        "odm",
+        "data",
+        "datastore",
+        "query",
+        "nosql",
+        "orm",
+        "db"
+      ],
+      license: "MIT",
+      main: "./index.js",
+      name: "mongoose",
+      repository: {
+        type: "git",
+        url: "git://github.com/Automattic/mongoose.git"
+      },
       scripts: {
+        "attest-benchmark": "node ./benchmarks/typescript/infer.bench.mts",
+        "build-browser": "(rm ./dist/* || true) && node ./scripts/build-browser.js",
+        "create-separate-require-instance": "rm -rf ./node_modules/mongoose-separate-require-instance && node ./scripts/create-tarball && tar -xzf mongoose.tgz -C ./node_modules && mv ./node_modules/package ./node_modules/mongoose-separate-require-instance",
+        "docs:check-links": "blc http://127.0.0.1:8089 -ro",
         "docs:clean": "npm run docs:clean:stable",
-        "docs:clean:stable": "rimraf index.html && rimraf -rf ./docs/*.html  && rimraf -rf ./docs/api && rimraf -rf ./docs/tutorials/*.html && rimraf -rf ./docs/typescript/*.html && rimraf -rf ./docs/*.html && rimraf -rf ./docs/source/_docs && rimraf -rf ./tmp",
         "docs:clean:5x": "rimraf index.html && rimraf -rf ./docs/5.x && rimraf -rf ./docs/source/_docs && rimraf -rf ./tmp",
         "docs:clean:6x": "rimraf index.html && rimraf -rf ./docs/6.x && rimraf -rf ./docs/source/_docs && rimraf -rf ./tmp",
+        "docs:clean:stable": "rimraf index.html && rimraf -rf ./docs/*.html  && rimraf -rf ./docs/api && rimraf -rf ./docs/tutorials/*.html && rimraf -rf ./docs/typescript/*.html && rimraf -rf ./docs/*.html && rimraf -rf ./docs/source/_docs && rimraf -rf ./tmp",
         "docs:copy:tmp": "mkdirp ./tmp/docs/css && mkdirp ./tmp/docs/js && mkdirp ./tmp/docs/images && mkdirp ./tmp/docs/tutorials && mkdirp ./tmp/docs/typescript && mkdirp ./tmp/docs/api && ncp ./docs/css ./tmp/docs/css --filter=.css$ && ncp ./docs/js ./tmp/docs/js --filter=.js$ && ncp ./docs/images ./tmp/docs/images && ncp ./docs/tutorials ./tmp/docs/tutorials && ncp ./docs/typescript ./tmp/docs/typescript && ncp ./docs/api ./tmp/docs/api && cp index.html ./tmp && cp docs/*.html ./tmp/docs/",
         "docs:copy:tmp:5x": "rimraf ./docs/5.x && ncp ./tmp ./docs/5.x",
         "docs:copy:tmp:6x": "rimraf ./docs/6.x && ncp ./tmp ./docs/6.x",
         "docs:generate": "node ./scripts/website.js",
         "docs:generate:sponsorData": "node ./scripts/loadSponsorData.js",
-        "docs:test": "npm run docs:generate",
-        "docs:view": "node ./scripts/static.js",
-        "docs:prepare:publish:stable": "git checkout gh-pages && git merge master && npm run docs:generate",
         "docs:prepare:publish:5x": "git checkout 5.x && git merge 5.x && npm run docs:clean:stable && npm run docs:generate && npm run docs:copy:tmp && git checkout gh-pages && npm run docs:copy:tmp:5x",
         "docs:prepare:publish:6x": "git checkout 6.x && git merge 6.x && npm run docs:clean:stable && env DOCS_DEPLOY=true npm run docs:generate && mv ./docs/6.x ./tmp && git checkout gh-pages && npm run docs:copy:tmp:6x",
         "docs:prepare:publish:7x": "env DOCS_DEPLOY=true npm run docs:generate && git checkout gh-pages && rimraf ./docs/7.x && mv ./tmp ./docs/7.x",
         "docs:prepare:publish:8x": "env DOCS_DEPLOY=true npm run docs:generate && git checkout gh-pages && rimraf ./docs/8.x && mv ./tmp ./docs/8.x",
-        "docs:check-links": "blc http://127.0.0.1:8089 -ro",
+        "docs:prepare:publish:stable": "git checkout gh-pages && git merge master && npm run docs:generate",
+        "docs:test": "npm run docs:generate",
+        "docs:view": "node ./scripts/static.js",
         lint: "eslint .",
         "lint-js": "eslint . --ext .js --ext .cjs",
-        "lint-ts": "eslint . --ext .ts",
         "lint-md": 'markdownlint-cli2 "**/*.md" "#node_modules" "#benchmarks"',
-        "build-browser": "(rm ./dist/* || true) && node ./scripts/build-browser.js",
+        "lint-ts": "eslint . --ext .ts",
+        mongo: "node ./tools/repl.js",
         prepublishOnly: "npm run build-browser",
+        "publish-7x": "npm publish --tag 7x",
         release: "git pull && git push origin master --tags && npm publish",
         "release-5x": "git pull origin 5.x && git push origin 5.x && git push origin 5.x --tags && npm publish --tag 5x",
         "release-6x": "git pull origin 6.x && git push origin 6.x && git push origin 6.x --tags && npm publish --tag 6x",
-        mongo: "node ./tools/repl.js",
-        "publish-7x": "npm publish --tag 7x",
-        "create-separate-require-instance": "rm -rf ./node_modules/mongoose-separate-require-instance && node ./scripts/create-tarball && tar -xzf mongoose.tgz -C ./node_modules && mv ./node_modules/package ./node_modules/mongoose-separate-require-instance",
+        "setup-test-encryption": "node scripts/setup-encryption-tests.js",
+        tdd: "mocha ./test/*.test.js --inspect --watch --recursive --watch-files ./**/*.{js,ts}",
         test: "mocha --exit ./test/*.test.js",
+        "test-coverage": "nyc --reporter=html --reporter=text npm test",
         "test-deno": "deno run --allow-env --allow-read --allow-net --allow-run --allow-sys --allow-write ./test/deno.mjs",
+        "test-encryption": "mocha --exit ./test/encryption/*.test.js",
         "test-rs": "START_REPLICA_SET=1 mocha --timeout 30000 --exit ./test/*.test.js",
         "test-tsd": "node ./test/types/check-types-filename && tsd",
-        "setup-test-encryption": "node scripts/setup-encryption-tests.js",
-        "test-encryption": "mocha --exit ./test/encryption/*.test.js",
-        tdd: "mocha ./test/*.test.js --inspect --watch --recursive --watch-files ./**/*.{js,ts}",
-        "test-coverage": "nyc --reporter=html --reporter=text npm test",
         "ts-benchmark": "cd ./benchmarks/typescript/simple && npm install && npm run benchmark | node ../../../scripts/tsc-diagnostics-check",
-        "ts-benchmark:local": "node ./scripts/create-tarball && cd ./benchmarks/typescript/simple && rm -rf ./node_modules && npm install && npm run benchmark | node ../../../scripts/tsc-diagnostics-check",
-        "attest-benchmark": "node ./benchmarks/typescript/infer.bench.mts"
-      },
-      main: "./index.js",
-      types: "./types/index.d.ts",
-      engines: {
-        node: ">=16.20.1"
-      },
-      bugs: {
-        url: "https://github.com/Automattic/mongoose/issues/new"
-      },
-      repository: {
-        type: "git",
-        url: "git://github.com/Automattic/mongoose.git"
-      },
-      homepage: "https://mongoosejs.com",
-      browser: "./dist/browser.umd.js",
-      config: {
-        mongodbMemoryServer: {
-          disablePostinstall: true
-        }
-      },
-      funding: {
-        type: "opencollective",
-        url: "https://opencollective.com/mongoose"
+        "ts-benchmark:local": "node ./scripts/create-tarball && cd ./benchmarks/typescript/simple && rm -rf ./node_modules && npm install && npm run benchmark | node ../../../scripts/tsc-diagnostics-check"
       },
       tsd: {
         directory: "test/types",
@@ -83867,7 +83923,10 @@ var require_package2 = __commonJS({
           module: "commonjs",
           target: "ES2017"
         }
-      }
+      },
+      type: "commonjs",
+      types: "./types/index.d.ts",
+      version: "8.22.0"
     };
   }
 });
@@ -96947,8 +97006,16 @@ var jobSchema = new import_mongoose3.default.Schema({
   ratePerPiece: { type: Number, default: 0 },
   quantity: { type: Number, default: 1 },
   addMaterialCost: { type: Boolean, default: false },
+  materialThickness: { type: Number, default: 0 },
+  materialLength: { type: Number, default: 0 },
+  materialWidth: { type: Number, default: 0 },
   materialKg: { type: Number, default: 0 },
   materialRatePerKg: { type: Number, default: 0 },
+  materialCost: { type: Number, default: 0 },
+  addBending: { type: Boolean, default: false },
+  bendingHours: { type: Number, default: 0 },
+  bendingRatePerHour: { type: Number, default: 0 },
+  bendingCost: { type: Number, default: 0 },
   runningMeterRate: { type: Number, default: 0 },
   piercingRate: { type: Number, default: 0 },
   totalAmount: { type: Number, default: 0 },
@@ -97206,8 +97273,16 @@ router2.post("/", async (req, res) => {
       ratePerPiece,
       quantity,
       addMaterialCost,
+      materialThickness,
+      materialLength,
+      materialWidth,
       materialKg,
       materialRatePerKg,
+      materialCost,
+      addBending,
+      bendingHours,
+      bendingRatePerHour,
+      bendingCost,
       runningMeterRate,
       piercingRate,
       totalAmount
@@ -97236,8 +97311,16 @@ router2.post("/", async (req, res) => {
       ratePerPiece: Number(ratePerPiece) || 0,
       quantity: Number(quantity) || 1,
       addMaterialCost: !!addMaterialCost,
+      materialThickness: Number(materialThickness) || 0,
+      materialLength: Number(materialLength) || 0,
+      materialWidth: Number(materialWidth) || 0,
       materialKg: Number(materialKg) || 0,
       materialRatePerKg: Number(materialRatePerKg) || 0,
+      materialCost: Number(materialCost) || 0,
+      addBending: !!addBending,
+      bendingHours: Number(bendingHours) || 0,
+      bendingRatePerHour: Number(bendingRatePerHour) || 0,
+      bendingCost: Number(bendingCost) || 0,
       runningMeterRate: Number(runningMeterRate) || 0,
       piercingRate: Number(piercingRate) || 0,
       totalAmount: Number(totalAmount) || 0,
@@ -97280,8 +97363,16 @@ router2.put("/:id", async (req, res) => {
       "ratePerPiece",
       "quantity",
       "addMaterialCost",
+      "materialThickness",
+      "materialLength",
+      "materialWidth",
       "materialKg",
       "materialRatePerKg",
+      "materialCost",
+      "addBending",
+      "bendingHours",
+      "bendingRatePerHour",
+      "bendingCost",
       "runningMeterRate",
       "piercingRate",
       "totalAmount"

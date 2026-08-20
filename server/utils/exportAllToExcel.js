@@ -40,7 +40,7 @@ function sheetFromRows(name, headers, rows) {
 
 async function fetchAllData() {
   const [jobs, customers, items, users, companies, roles] = await Promise.all([
-    Job.find().populate('customer', 'firstName lastName').sort({ date: -1 }).lean(),
+    Job.find({ deletedAt: null }).populate('customer', 'firstName lastName').sort({ date: -1 }).lean(),
     Customer.find().sort({ createdAt: -1 }).lean(),
     Item.find().sort({ material: 1, thickness: 1 }).lean(),
     User.find().populate('role_id', 'name').populate('company_id', 'name').select('-password').lean(),

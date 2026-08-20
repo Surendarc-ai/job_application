@@ -36,6 +36,7 @@ const jobSchema = new mongoose.Schema({
   runningMeterRate: { type: Number, default: 0 },
   piercingRate: { type: Number, default: 0 },
   totalAmount: { type: Number, default: 0 },
+  deletedAt: { type: Date, default: null },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   company_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', default: null },
 }, { timestamps: true });

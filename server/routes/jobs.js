@@ -9,8 +9,14 @@ const router = Router();
 router.use(authMiddleware);
 
 async function buildJobFilter(req, query) {
-  const { search, fromDate, toDate, company, status } = query;
+  const { search, fromDate, toDate, company, status, deleted } = query;
   const filter = { ...getScopeFilter(req) };
+
+  if (deleted === 'true') {
+    filter.deletedAt = { $ne: null };
+  } else {
+    filter.deletedAt = null;
+  }
 
   if (status) filter.paymentStatus = status;
 
@@ -128,8 +134,18 @@ async function fetchJobsByCustomerSort(filter, { sortOrder, page, limit, all }) 
   return { jobs, total };
 }
 
-function jobScope(req) {
-  return { _id: req.params.id, ...getScopeFilter(req) };
+function jobScope(req, { includeDeleted = false } = {}) {
+  const scope = { _id: req.params.id, ...getScopeFilter(req) };
+  if (!includeDeleted) scope.deletedAt = null;
+  return scope;
+}
+
+function deletedJobScope(req) {
+  return {
+    _id: req.params.id,
+    ...getScopeFilter(req),
+    deletedAt: { $ne: null },
+  };
 }
 
 async function validateCustomerCompany(req, customerId) {
@@ -179,6 +195,32 @@ router.get('/', async (req, res) => {
 
     const total = await Job.countDocuments(filter);
     const jobs = await baseQuery.skip((page - 1) * limit).limit(limit);
+
+    res.json({
+      jobs,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/recycle', async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 30));
+    const filter = await buildJobFilter(req, { ...req.query, deleted: 'true' });
+    const sort = { deletedAt: -1 };
+
+    const total = await Job.countDocuments(filter);
+    const jobs = await Job.find(filter)
+      .populate('customer', 'firstName lastName')
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit);
 
     res.json({
       jobs,
@@ -242,6 +284,7 @@ router.post('/', async (req, res) => {
       runningMeterRate: Number(runningMeterRate) || 0,
       piercingRate: Number(piercingRate) || 0,
       totalAmount: Number(totalAmount) || 0,
+      deletedAt: null,
       userId: req.userId,
       company_id: getCompanyIdForSave(req),
     });
@@ -297,9 +340,38 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+router.post('/:id/restore', async (req, res) => {
+  try {
+    const job = await Job.findOneAndUpdate(
+      deletedJobScope(req),
+      { deletedAt: null },
+      { new: true },
+    ).populate('customer', 'firstName lastName');
+
+    if (!job) return res.status(404).json({ error: 'Deleted job not found' });
+    res.json(job);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:id/permanent', async (req, res) => {
+  try {
+    const job = await Job.findOneAndDelete(deletedJobScope(req));
+    if (!job) return res.status(404).json({ error: 'Deleted job not found' });
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/:id', async (req, res) => {
   try {
-    const job = await Job.findOneAndDelete(jobScope(req));
+    const job = await Job.findOneAndUpdate(
+      jobScope(req),
+      { deletedAt: new Date() },
+      { new: true },
+    );
     if (!job) return res.status(404).json({ error: 'Job not found' });
     res.status(204).send();
   } catch (err) {
