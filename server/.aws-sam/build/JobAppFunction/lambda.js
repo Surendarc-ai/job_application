@@ -42266,7 +42266,7 @@ var require_package = __commonJS({
       _args: [
         [
           "mongodb@6.20.0",
-          "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmpgdm431mh"
+          "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmp8u_m6uga"
         ]
       ],
       _from: "mongodb@6.20.0",
@@ -42290,7 +42290,7 @@ var require_package = __commonJS({
       ],
       _resolved: "https://registry.npmjs.org/mongodb/-/mongodb-6.20.0.tgz",
       _spec: "6.20.0",
-      _where: "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmpgdm431mh",
+      _where: "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmp8u_m6uga",
       author: {
         name: "The MongoDB NodeJS Team",
         email: "dbx-node@mongodb.com"
@@ -52419,9 +52419,9 @@ var require_server = __commonJS({
         super();
         this.on("error", utils_1.noop);
         this.serverApi = options.serverApi;
-        const poolOptions = { hostAddress: description.hostAddress, ...options };
+        const poolOptions2 = { hostAddress: description.hostAddress, ...options };
         this.topology = topology;
-        this.pool = new connection_pool_1.ConnectionPool(this, poolOptions);
+        this.pool = new connection_pool_1.ConnectionPool(this, poolOptions2);
         this.s = {
           description,
           options,
@@ -83745,7 +83745,7 @@ var require_package2 = __commonJS({
       _args: [
         [
           "mongoose@8.22.0",
-          "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmpgdm431mh"
+          "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmp8u_m6uga"
         ]
       ],
       _from: "mongoose@8.22.0",
@@ -83769,7 +83769,7 @@ var require_package2 = __commonJS({
       ],
       _resolved: "https://registry.npmjs.org/mongoose/-/mongoose-8.22.0.tgz",
       _spec: "8.22.0",
-      _where: "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmpgdm431mh",
+      _where: "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmp8u_m6uga",
       author: {
         name: "Guillermo Rauch",
         email: "guillermo@learnboost.com"
@@ -97939,15 +97939,29 @@ var roles_default = router7;
 // db.js
 var import_mongoose8 = __toESM(require_mongoose2(), 1);
 var MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://csurendar8_db_user:eqBz81kmykrZvlLW@jobapplication.fk4wlw8.mongodb.net";
+var isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 var connectPromise = null;
+function poolOptions() {
+  const maxPoolSize = Number(process.env.MONGODB_MAX_POOL_SIZE) || (isLambda ? 1 : 2);
+  return {
+    maxPoolSize,
+    minPoolSize: 0,
+    maxIdleTimeMS: Number(process.env.MONGODB_MAX_IDLE_MS) || 15e3,
+    serverSelectionTimeoutMS: Number(process.env.MONGODB_TIMEOUT_MS) || 3e4,
+    socketTimeoutMS: 45e3
+  };
+}
+import_mongoose8.default.connection.on("disconnected", () => {
+  connectPromise = null;
+});
 async function connectDB() {
   if (import_mongoose8.default.connection.readyState === 1) {
     return import_mongoose8.default.connection;
   }
   if (!connectPromise) {
-    connectPromise = import_mongoose8.default.connect(MONGODB_URI, {
-      maxPoolSize: 5,
-      serverSelectionTimeoutMS: Number(process.env.MONGODB_TIMEOUT_MS) || 3e4
+    connectPromise = import_mongoose8.default.connect(MONGODB_URI, poolOptions()).catch((err) => {
+      connectPromise = null;
+      throw err;
     });
   }
   await connectPromise;
@@ -97990,6 +98004,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use(async (req, res, next) => {
+  if (req.path === "/api/health" || req.method === "OPTIONS") return next();
   try {
     await connectDB();
     next();

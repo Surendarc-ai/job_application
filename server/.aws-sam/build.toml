@@ -31,6 +31,7 @@ External = ["@aws-sdk/*"]
 
 
 
+
 [function_build_definitions.b7225fb0-922e-41c3-88ee-b9c701b689e6]
 codeuri = "/Users/lap21016/job_application_latest/job_application/server"
 runtime = "nodejs20.x"
@@ -48,6 +49,7 @@ Minify = false
 Target = "es2022"
 Sourcemap = false
 EntryPoints = ["cron/exportHandler.js"]
+
 
 
 

@@ -208,6 +208,87 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/stats', async (req, res) => {
+  try {
+    const filter = await buildJobFilter(req, req.query);
+    const tz = process.env.EXPORT_CRON_TZ || 'Asia/Kolkata';
+    const paymentStatuses = ['Non-Billed', 'Billed', 'Paid', 'Partial'];
+
+    const [summary] = await Job.aggregate([
+      { $match: filter },
+      {
+        $facet: {
+          totals: [
+            {
+              $group: {
+                _id: null,
+                totalJobs: { $sum: 1 },
+                totalAmount: { $sum: { $ifNull: ['$totalAmount', 0] } },
+                dcJobs: { $sum: { $cond: ['$isDC', 1, 0] } },
+              },
+            },
+          ],
+          byMonth: [
+            {
+              $group: {
+                _id: {
+                  $dateToString: { format: '%Y-%m', date: '$date', timezone: tz },
+                },
+                total: { $sum: { $ifNull: ['$totalAmount', 0] } },
+              },
+            },
+            { $sort: { _id: 1 } },
+          ],
+          byStatus: [
+            {
+              $group: {
+                _id: '$paymentStatus',
+                count: { $sum: 1 },
+              },
+            },
+          ],
+          byMaterial: [
+            {
+              $group: {
+                _id: { $ifNull: ['$materialType', 'Unspecified'] },
+                total: { $sum: { $ifNull: ['$totalAmount', 0] } },
+              },
+            },
+            { $sort: { total: -1 } },
+          ],
+        },
+      },
+    ]);
+
+    const totals = summary?.totals?.[0] || { totalJobs: 0, totalAmount: 0, dcJobs: 0 };
+    const statusCounts = Object.fromEntries(paymentStatuses.map((s) => [s, 0]));
+    for (const row of summary?.byStatus || []) {
+      if (row._id) statusCounts[row._id] = row.count;
+    }
+
+    res.json({
+      totalJobs: totals.totalJobs,
+      totalAmount: totals.totalAmount,
+      dcJobs: totals.dcJobs,
+      avgPerJob: totals.totalJobs ? totals.totalAmount / totals.totalJobs : 0,
+      revenueByMonth: (summary?.byMonth || []).map((row) => ({
+        key: row._id,
+        value: row.total,
+      })),
+      jobsByStatus: {
+        labels: paymentStatuses,
+        values: paymentStatuses.map((s) => statusCounts[s] || 0),
+      },
+      revenueByMaterial: (summary?.byMaterial || []).map((row) => ({
+        label: row._id || 'Unspecified',
+        value: row.total,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/recycle', async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
