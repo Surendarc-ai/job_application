@@ -42266,7 +42266,7 @@ var require_package = __commonJS({
       _args: [
         [
           "mongodb@6.20.0",
-          "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmp_xti98pp"
+          "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmpgdm431mh"
         ]
       ],
       _from: "mongodb@6.20.0",
@@ -42290,7 +42290,7 @@ var require_package = __commonJS({
       ],
       _resolved: "https://registry.npmjs.org/mongodb/-/mongodb-6.20.0.tgz",
       _spec: "6.20.0",
-      _where: "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmp_xti98pp",
+      _where: "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmpgdm431mh",
       author: {
         name: "The MongoDB NodeJS Team",
         email: "dbx-node@mongodb.com"
@@ -83745,7 +83745,7 @@ var require_package2 = __commonJS({
       _args: [
         [
           "mongoose@8.22.0",
-          "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmp_xti98pp"
+          "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmpgdm431mh"
         ]
       ],
       _from: "mongoose@8.22.0",
@@ -83769,7 +83769,7 @@ var require_package2 = __commonJS({
       ],
       _resolved: "https://registry.npmjs.org/mongoose/-/mongoose-8.22.0.tgz",
       _spec: "8.22.0",
-      _where: "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmp_xti98pp",
+      _where: "/private/var/folders/bl/s9xbmthn1bx_4186j3hfxh3r0000gn/T/tmpgdm431mh",
       author: {
         name: "Guillermo Rauch",
         email: "guillermo@learnboost.com"
@@ -97019,6 +97019,7 @@ var jobSchema = new import_mongoose3.default.Schema({
   runningMeterRate: { type: Number, default: 0 },
   piercingRate: { type: Number, default: 0 },
   totalAmount: { type: Number, default: 0 },
+  deletedAt: { type: Date, default: null },
   userId: { type: import_mongoose3.default.Schema.Types.ObjectId, ref: "User", required: true },
   company_id: { type: import_mongoose3.default.Schema.Types.ObjectId, ref: "Company", default: null }
 }, { timestamps: true });
@@ -97100,8 +97101,13 @@ function tokenRegex(token) {
 var router2 = (0, import_express2.Router)();
 router2.use(authMiddleware);
 async function buildJobFilter(req, query) {
-  const { search, fromDate, toDate, company, status } = query;
+  const { search, fromDate, toDate, company, status, deleted } = query;
   const filter = { ...getScopeFilter(req) };
+  if (deleted === "true") {
+    filter.deletedAt = { $ne: null };
+  } else {
+    filter.deletedAt = null;
+  }
   if (status) filter.paymentStatus = status;
   if (company) {
     filter.$or = [{ officeBranch: company }, { company }];
@@ -97204,8 +97210,17 @@ async function fetchJobsByCustomerSort(filter, { sortOrder, page, limit, all }) 
   const total = countResult[0]?.total ?? 0;
   return { jobs, total };
 }
-function jobScope(req) {
-  return { _id: req.params.id, ...getScopeFilter(req) };
+function jobScope(req, { includeDeleted = false } = {}) {
+  const scope = { _id: req.params.id, ...getScopeFilter(req) };
+  if (!includeDeleted) scope.deletedAt = null;
+  return scope;
+}
+function deletedJobScope(req) {
+  return {
+    _id: req.params.id,
+    ...getScopeFilter(req),
+    deletedAt: { $ne: null }
+  };
 }
 async function validateCustomerCompany(req, customerId) {
   if (!customerId) return true;
@@ -97245,6 +97260,25 @@ router2.get("/", async (req, res) => {
     }
     const total = await Job_default.countDocuments(filter);
     const jobs = await baseQuery.skip((page - 1) * limit).limit(limit);
+    res.json({
+      jobs,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+router2.get("/recycle", async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 30));
+    const filter = await buildJobFilter(req, { ...req.query, deleted: "true" });
+    const sort = { deletedAt: -1 };
+    const total = await Job_default.countDocuments(filter);
+    const jobs = await Job_default.find(filter).populate("customer", "firstName lastName").sort(sort).skip((page - 1) * limit).limit(limit);
     res.json({
       jobs,
       total,
@@ -97324,6 +97358,7 @@ router2.post("/", async (req, res) => {
       runningMeterRate: Number(runningMeterRate) || 0,
       piercingRate: Number(piercingRate) || 0,
       totalAmount: Number(totalAmount) || 0,
+      deletedAt: null,
       userId: req.userId,
       company_id: getCompanyIdForSave(req)
     });
@@ -97390,9 +97425,35 @@ router2.put("/:id", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+router2.post("/:id/restore", async (req, res) => {
+  try {
+    const job = await Job_default.findOneAndUpdate(
+      deletedJobScope(req),
+      { deletedAt: null },
+      { new: true }
+    ).populate("customer", "firstName lastName");
+    if (!job) return res.status(404).json({ error: "Deleted job not found" });
+    res.json(job);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+router2.delete("/:id/permanent", async (req, res) => {
+  try {
+    const job = await Job_default.findOneAndDelete(deletedJobScope(req));
+    if (!job) return res.status(404).json({ error: "Deleted job not found" });
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 router2.delete("/:id", async (req, res) => {
   try {
-    const job = await Job_default.findOneAndDelete(jobScope(req));
+    const job = await Job_default.findOneAndUpdate(
+      jobScope(req),
+      { deletedAt: /* @__PURE__ */ new Date() },
+      { new: true }
+    );
     if (!job) return res.status(404).json({ error: "Job not found" });
     res.status(204).send();
   } catch (err) {

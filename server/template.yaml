@@ -34,12 +34,14 @@ Resources:
       Handler: lambda.handler
       CodeUri: .
       Description: Job Application Express API
+      ReservedConcurrentExecutions: 15
       Environment:
         Variables:
           MONGODB_URI: !Ref MongoDbUri
           JWT_SECRET: !Ref JwtSecret
           CLIENT_ORIGIN: !Ref ClientOrigin
           MONGODB_TIMEOUT_MS: '30000'
+          MONGODB_MAX_POOL_SIZE: '1'
       Events:
         Api:
           Type: HttpApi
@@ -86,12 +88,14 @@ Resources:
       Description: Daily 2 AM export of jobs, customers, items, users, companies, roles
       Timeout: 120
       MemorySize: 1024
+      ReservedConcurrentExecutions: 1
       Environment:
         Variables:
           MONGODB_URI: !Ref MongoDbUri
           EXPORT_BUCKET: !Ref ExportBucket
           EXPORT_CRON_TZ: Asia/Kolkata
           MONGODB_TIMEOUT_MS: '30000'
+          MONGODB_MAX_POOL_SIZE: '1'
       Policies:
         - S3WritePolicy:
             BucketName: !Ref ExportBucket

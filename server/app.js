@@ -53,6 +53,7 @@ app.use((req, res, next) => {
 });
 
 app.use(async (req, res, next) => {
+  if (req.path === '/api/health' || req.method === 'OPTIONS') return next();
   try {
     await connectDB();
     next();
